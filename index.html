@@ -6,6 +6,8 @@
     <title>OTT Mobile M3U Player</title>
     <!-- FontAwesome İkonları -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- HLS.js Kütüphanesi (AzTV, İctimai TV ve diğer canlı yayın akışlarının sorunsuz açılması için) -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         :root {
             --bg-color: #0f0f0f;
@@ -44,6 +46,20 @@
             transition: background-color 0.3s, color 0.3s;
         }
 
+        /* --- ÜST CEO BAR --- */
+        .ceo-header {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 15px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-color);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
         /* --- VİDEO ALANI (YouTube Tarzı) --- */
         .video-container {
             width: 100%;
@@ -57,7 +73,7 @@
             transition: all 0.3s;
         }
 
-        /* Yatay Dönüş Simülasyon Sınıfı */
+        /* Gelişmiş Yatay Dönüş Simülasyon Sınıfı */
         .video-container.landscape-mode {
             position: fixed;
             top: 0;
@@ -66,6 +82,7 @@
             height: 100vh;
             aspect-ratio: auto;
             z-index: 9999;
+            transform: rotate(0deg); /* Mobil tarayıcı kontrolü için dinamik oryantasyon */
         }
 
         video {
@@ -158,6 +175,7 @@
             opacity: 0;
             transition: opacity 0.3s;
             pointer-events: none;
+            z-index: 10;
         }
 
         .video-container:hover .center-controls,
@@ -315,7 +333,7 @@
             border-top: 1px solid var(--border-color);
         }
 
-        /* Dikey Liste Görünümü (İstenen Siyahı Yapısı) */
+        /* Dikey Liste Görünümü */
         .stream-list {
             display: flex;
             flex-direction: column;
@@ -381,35 +399,40 @@
 </head>
 <body>
 
+    <!-- Üst Yönetici Künyesi -->
+    <div class="ceo-header">
+        <i class="fas fa-user-shield"></i> CEO: Əli Məhərrəmov
+    </div>
+
     <!-- Oynatıcı Bölümü -->
     <div class="video-container" id="videoContainer">
         <video id="mainPlayer" playsinline></video>
         
         <!-- Orta Sarma Butonları -->
         <div class="center-controls">
-            <button class="center-btn" onclick="rewind()"><i class="fas fa-backward"></i></button>
-            <button class="center-btn" id="centerPlayBtn" onclick="togglePlay()"><i class="fas fa-play"></i></button>
-            <button class="center-btn" onclick="forward()"><i class="fas fa-forward"></i></button>
+            <button class="center-btn" onclick="event.stopPropagation(); rewind();"><i class="fas fa-backward"></i></button>
+            <button class="center-btn" id="centerPlayBtn" onclick="event.stopPropagation(); togglePlay();"><i class="fas fa-play"></i></button>
+            <button class="center-btn" onclick="event.stopPropagation(); forward();"><i class="fas fa-forward"></i></button>
         </div>
 
         <!-- Alt Kontrol Barı (YouTube Stili) -->
         <div class="video-controls" id="videoControls">
             <!-- Zaman Çizgisi Sürgüsü -->
-            <div class="timeline-container">
+            <div class="timeline-container" onclick="event.stopPropagation();">
                 <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)">
                     <div class="video-progress-fill" id="progressFill"></div>
                 </div>
                 <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
             </div>
 
-            <div class="control-row">
+            <div class="control-row" onclick="event.stopPropagation();">
                 <div class="control-group">
                     <button class="control-btn" onclick="togglePlay()" id="playBtn"><i class="fas fa-play"></i></button>
                     <button class="control-btn" onclick="rewind()"><i class="fas fa-undo"></i></button>
                     <button class="control-btn" onclick="forward()"><i class="fas fa-redo"></i></button>
                 </div>
                 <div class="control-group">
-                    <button class="control-btn" onclick="toggleRotate()" id="rotateBtn" title="Ekranı Çevir"><i class="fas fa-sync-alt"></i></button>
+                    <button class="control-btn" onclick="toggleRotate()" id="rotateBtn" title="Ekranı Çevir"><i class="fas fa-sync-alt"></i> Çevir</button>
                     <button class="control-btn" onclick="togglePip()" id="pipBtn"><i class="fas fa-compress"></i> PiP</button>
                     <button class="control-btn" onclick="toggleFullscreen()"><i class="fas fa-expand"></i></button>
                 </div>
@@ -436,7 +459,7 @@
         </div>
 
         <div id="mainLayout" style="display: none;">
-            <!-- Akordiyon Kategori Listesi (Üzerine vurulduğunda aşağı açılır liste) -->
+            <!-- Akordiyon Kategori Listesi -->
             <div class="category-accordion" id="accordionContainer"></div>
         </div>
     </div>
@@ -453,6 +476,7 @@
 
         let currentMainTab = 'live';
         let currentTheme = 'dark';
+        let hls = null;
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -604,7 +628,6 @@
                 // Tıklama Olayı (Aç/Kapat)
                 header.onclick = () => {
                     const isActive = accordionItem.classList.contains('active');
-                    // Diğerlerini kapat
                     document.querySelectorAll('.accordion-item').forEach(item => item.classList.remove('active'));
                     
                     if (!isActive) {
@@ -616,10 +639,51 @@
             });
         }
 
+        // Gelişmiş Canlı Yayın ve HLS Oynatıcı Sistemi
         function playMedia(url) {
-            video.src = url;
-            video.load();
-            video.play().catch(e => console.log("Otomatik oynatma engellendi: ", e));
+            // Eski hls instance'ı varsa temizle temiz açılması için
+            if (hls) {
+                hls.destroy();
+            }
+
+            if (url.includes('.m3u8') || currentMainTab === 'live') {
+                if (Hls.isSupported()) {
+                    hls = new Hls({
+                        maxMaxBufferLength: 10,
+                        liveSyncDurationCount: 3
+                    });
+                    hls.loadSource(url);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        video.play().catch(e => console.log("Oynatma hatası:", e));
+                    });
+                    hls.on(Hls.Events.ERROR, function (event, data) {
+                        if (data.fatal) {
+                            switch (data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    hls.startLoad();
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    hls.recoverMediaError();
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                    });
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Safari ve iOS desteği için native oynatım
+                    video.src = url;
+                    video.load();
+                    video.play().catch(e => console.log("Oynatma hatası:", e));
+                }
+            } else {
+                // Standart MP4/MKV Vod Dosyaları İçin
+                video.src = url;
+                video.load();
+                video.play().catch(e => console.log("Oynatma hatası:", e));
+            }
+
             playBtn.innerHTML = '<i class="fas fa-pause"></i>';
             centerPlayBtn.innerHTML = '<i class="fas fa-pause"></i>';
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -627,7 +691,7 @@
 
         // --- YOUTUBE TARZI SÜRE VE İLERLEME ÇUBUĞU ---
         video.addEventListener('timeupdate', () => {
-            if (video.duration) {
+            if (video.duration && isFinite(video.duration) && video.duration > 0) {
                 const current = formatTime(video.currentTime);
                 const total = formatTime(video.duration);
                 timeDisplay.innerText = `${current} / ${total}`;
@@ -635,14 +699,13 @@
                 const percentage = (video.currentTime / video.duration) * 100;
                 progressFill.style.width = `${percentage}%`;
             } else {
-                // Canlı Yayın Durumu
                 timeDisplay.innerText = "Canlı Yayın";
                 progressFill.style.width = '100%';
             }
         });
 
         function formatTime(seconds) {
-            if (isNaN(seconds)) return "00:00";
+            if (isNaN(seconds) || !isFinite(seconds)) return "00:00";
             const h = Math.floor(seconds / 3600);
             const m = Math.floor((seconds % 3600) / 60);
             const s = Math.floor(seconds % 60);
@@ -654,7 +717,7 @@
         }
 
         function seekVideo(event) {
-            if (!video.duration) return;
+            if (!video.duration || !isFinite(video.duration)) return;
             const rect = progressBar.getBoundingClientRect();
             const clickX = event.clientX - rect.left;
             const width = rect.width;
@@ -665,7 +728,7 @@
         // --- OYNATICI KONTROLLERİ ---
         function togglePlay() {
             if (video.paused) {
-                video.play();
+                video.play().catch(e => console.log(e));
                 playBtn.innerHTML = '<i class="fas fa-pause"></i>';
                 centerPlayBtn.innerHTML = '<i class="fas fa-pause"></i>';
             } else {
@@ -678,9 +741,12 @@
         function forward() { video.currentTime += 10; }
         function rewind() { video.currentTime -= 10; }
 
-        // Video Tıklama (YouTube mantığı - Kontrolleri göster/gizle)
-        video.addEventListener('click', function(e) {
-            videoControls.classList.toggle('keep-visible');
+        // Video alanına veya üzerine vurulduğunda çalışacak akıllı döndürme tetikleyicisi
+        videoContainer.addEventListener('click', function(e) {
+            // Kontroller veya butonlar tıklanmadıysa döngüyü/kontrolleri tetikle
+            if(e.target === video || e.target === videoContainer) {
+                videoControls.classList.toggle('keep-visible');
+            }
         });
 
         function toggleFullscreen() {
@@ -695,13 +761,27 @@
             }
         }
 
-        // Yatay Çevirme Fonksiyonu (Mobil tarayıcılar için CSS rotasyonu simülasyonu)
+        // Geliştirilmiş Akıllı Yatay/Dikey Çevirme Fonksiyonu
         function toggleRotate() {
-            videoContainer.classList.toggle('landscape-mode');
-            if (videoContainer.classList.contains('landscape-mode')) {
+            const isLandscape = videoContainer.classList.toggle('landscape-mode');
+            if (isLandscape) {
                 document.body.style.overflow = 'hidden';
+                // Eğer mobil tarayıcı API'yi destekliyorsa ekranı tam ekran yapıp tam döndürür
+                if (videoContainer.requestFullscreen) {
+                    videoContainer.requestFullscreen().then(() => {
+                        if (screen.orientation && screen.orientation.lock) {
+                            screen.orientation.lock('landscape').catch(e => console.log(e));
+                        }
+                    });
+                }
             } else {
                 document.body.style.overflow = '';
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                }
+                if (screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock();
+                }
             }
         }
 
@@ -713,7 +793,7 @@
                     await document.exitPictureInPicture();
                 }
             } catch (error) {
-                alert("Cihazınız PiP (Picture-in-Picture) özelliğini destekremiyor.");
+                alert("Cihazınız PiP (Picture-in-Picture) özelliğini desteklemiyor.");
             }
         }
 
