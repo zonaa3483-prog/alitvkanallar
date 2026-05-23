@@ -509,9 +509,14 @@
     <script>
         const INTERNAL_M3U_URL = "https://raw.githubusercontent.com/zonaa3483-prog/eli-iptv-siyahi/refs/heads/main/alimtv.m3u"; 
 
-        // GLOBAL CORS PROXY MOTORU (Tarayıcıyı Chrome gibi gösterip Vercel bağını gizler)
-        const CORS_PROXY = "https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?container=focus&refresh=2592000&url=";
-        const ALT_CORS_PROXY = "https://api.allorigins.win/raw?url=";
+        // OTTPLAY TARZI AKILLI PROXY VE BYPASS ZİNCİRİ
+        // Birinci proxy çökerse veya block yerse otomatik alternatif havuz devreye girer.
+        const PROXY_POOL = [
+            "https://api.allorigins.win/raw?url=",
+            "https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?container=focus&refresh=2592000&url=",
+            "https://corsproxy.io/?",
+            "" // Doğrudan bağlantı dene (Fallback)
+        ];
 
         const PLAYLIST_DATA = {
             live: {},
@@ -536,72 +541,93 @@
 
         // --- M3U PARSER ---
         async function fetchAndParseM3U() {
-            try {
-                // Listenin kendisini de proxy üzerinden çekerek güvenlik duvarlarına takılmasını önlüyoruz
-                const response = await fetch(ALT_CORS_PROXY + encodeURIComponent(INTERNAL_M3U_URL));
-                if (!response.ok) throw new Error("Ağ hatası oluştu.");
-                const text = await response.text();
-                
-                const lines = text.split('\n');
-                let currentItemInfo = null;
-
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    
-                    if (line.startsWith('#EXTINF:')) {
-                        const groupMatch = line.match(/group-title="([^"]+)"/);
-                        const logoMatch = line.match(/tvg-logo="([^"]+)"/);
-                        
-                        const commaIndex = line.indexOf(',');
-                        const title = commaIndex !== -1 ? line.substring(commaIndex + 1).trim() : "Bilinmeyen Kanal";
-                        
-                        const group = groupMatch ? groupMatch[1] : "Diğerleri";
-                        const logo = logoMatch ? logoMatch[1] : "";
-
-                        currentItemInfo = { title, logo, group };
-                    } else if (line.startsWith('http') && currentItemInfo) {
-                        const url = line;
-                        
-                        let type = 'live';
-                        if (url.includes('/series/') || url.endsWith('.mp4') || url.endsWith('.mkv') || url.includes('/vod/') || currentItemInfo.group.toLowerCase().includes('dizi') || currentItemInfo.group.toLowerCase().includes('series')) {
-                            type = 'series';
-                        }
-
-                        const isKurtlarVadisi = currentItemInfo.title.toLowerCase().includes('kurtlar vadisi') || currentItemInfo.group.toLowerCase().includes('kurtlar vadisi');
-                        
-                        if (type === 'live' && isKurtlarVadisi) {
-                            currentItemInfo = null;
-                            continue;
-                        }
-
-                        if (!PLAYLIST_DATA[type][currentItemInfo.group]) {
-                            PLAYLIST_DATA[type][currentItemInfo.group] = [];
-                        }
-
-                        PLAYLIST_DATA[type][currentItemInfo.group].push({
-                            title: currentItemInfo.title,
-                            logo: currentItemInfo.logo,
-                            url: url
-                        });
-
-                        currentItemInfo = null;
+            let loaded = false;
+            // Listeyi çekmek için proxy havuzunu tara
+            for (let p = 0; p < PROXY_POOL.length - 1; p++) {
+                try {
+                    const targetUrl = PROXY_POOL[p] + encodeURIComponent(INTERNAL_M3U_URL);
+                    const response = await fetch(targetUrl);
+                    if (!response.ok) continue;
+                    const text = await response.text();
+                    if(text && text.includes("#EXTM3U")) {
+                        parseM3UText(text);
+                        loaded = true;
+                        break;
                     }
+                } catch (e) {
+                    console.log("Liste çekilirken proxy hatası, sonraki deneniyor...");
                 }
-
-                for (const t in PLAYLIST_DATA) {
-                    for (const g in PLAYLIST_DATA[t]) {
-                        if (PLAYLIST_DATA[t][g].length === 0) delete PLAYLIST_DATA[t][g];
-                    }
-                }
-
-                initUI();
-
-            } catch (error) {
-                document.getElementById('statusLayout').innerHTML = `
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <span>Oynatma listesi yüklenemedi!<br><small>${error.message}</small></span>
-                `;
             }
+
+            if (!loaded) {
+                // Proxy olmadan direkt dene
+                try {
+                    const response = await fetch(INTERNAL_M3U_URL);
+                    const text = await response.text();
+                    parseM3UText(text);
+                } catch (error) {
+                    document.getElementById('statusLayout').innerHTML = `
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Oynatma listesi yüklenemedi!<br><small>Bağlantı Hatası</small></span>
+                    `;
+                }
+            }
+        }
+
+        function parseM3UText(text) {
+            const lines = text.split('\n');
+            let currentItemInfo = null;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                if (line.startsWith('#EXTINF:')) {
+                    const groupMatch = line.match(/group-title="([^"]+)"/);
+                    const logoMatch = line.match(/tvg-logo="([^"]+)"/);
+                    
+                    const commaIndex = line.indexOf(',');
+                    const title = commaIndex !== -1 ? line.substring(commaIndex + 1).trim() : "Bilinmeyen Kanal";
+                    
+                    const group = groupMatch ? groupMatch[1] : "Diğerleri";
+                    const logo = logoMatch ? logoMatch[1] : "";
+
+                    currentItemInfo = { title, logo, group };
+                } else if (line.startsWith('http') && currentItemInfo) {
+                    const url = line;
+                    
+                    let type = 'live';
+                    if (url.includes('/series/') || url.endsWith('.mp4') || url.endsWith('.mkv') || url.includes('/vod/') || currentItemInfo.group.toLowerCase().includes('dizi') || currentItemInfo.group.toLowerCase().includes('series')) {
+                        type = 'series';
+                    }
+
+                    const isKurtlarVadisi = currentItemInfo.title.toLowerCase().includes('kurtlar vadisi') || currentItemInfo.group.toLowerCase().includes('kurtlar vadisi');
+                    
+                    if (type === 'live' && isKurtlarVadisi) {
+                        currentItemInfo = null;
+                        continue;
+                    }
+
+                    if (!PLAYLIST_DATA[type][currentItemInfo.group]) {
+                        PLAYLIST_DATA[type][currentItemInfo.group] = [];
+                    }
+
+                    PLAYLIST_DATA[type][currentItemInfo.group].push({
+                        title: currentItemInfo.title,
+                        logo: currentItemInfo.logo,
+                        url: url
+                    });
+
+                    currentItemInfo = null;
+                }
+            }
+
+            for (const t in PLAYLIST_DATA) {
+                for (const g in PLAYLIST_DATA[t]) {
+                    if (PLAYLIST_DATA[t][g].length === 0) delete PLAYLIST_DATA[t][g];
+                }
+            }
+
+            initUI();
         }
 
         function initUI() {
@@ -685,7 +711,7 @@
             });
         }
 
-        // --- ANTI-CORS DESTEKLİ OTT KANAL MOTORU ---
+        // --- EN GELİŞMİŞ OTT SİSTEMLİ OYNATICI MOTORU ---
         function playMedia(url, title) {
             if (hls) {
                 hls.destroy();
@@ -693,45 +719,47 @@
             }
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
+            let currentProxyIndex = 0;
 
-            // Vercel kökenini gizlemek için güvenli proxy linkini hazırlıyoruz
-            let securedUrl = url;
-            if (currentMainTab === 'live' && !url.includes('localhost')) {
-                // Kanalları kandıran ana akıllı URL yapısı
-                securedUrl = CORS_PROXY + encodeURIComponent(url);
-            }
+            // OTT Oynatıcıların kullandığı akıllı çalıştırma fonksiyonu
+            function attemptLoad(streamUrl, proxyIdx) {
+                let finalUrl = streamUrl;
+                
+                // Eğer proxy listesindeysek URL'yi encode edip proxy kuyruğuna sokuyoruz
+                if (proxyIdx < PROXY_POOL.length && PROXY_POOL[proxyIdx] !== "") {
+                    finalUrl = PROXY_POOL[proxyIdx] + encodeURIComponent(streamUrl);
+                }
 
-            if (currentMainTab === 'live' || url.includes('.m3u8') || url.includes('.ts')) {
                 if (Hls.isSupported()) {
+                    // OTTPlay benzeri kararlı canlı yayın tamponlama ve sertifika paspaslama ayarları
                     hls = new Hls({
                         enableWorker: true,
-                        lowLatencyMode: true,
-                        backBufferLength: 0,
-                        maxBufferLength: 10,
-                        maxMaxBufferLength: 20,
-                        liveSyncDuration: 1.5,
-                        liveMaxLatencyDuration: 4,
-                        manifestLoadingMaxRetry: 50,
-                        manifestLoadingRetryDelay: 500,
-                        fragLoadingMaxRetry: 50,
-                        fragLoadingRetryDelay: 500,
-                        fpsDroppedMonitoringPeriod: 2000,
-                        abrEwmaDefaultEstimate: 8000000,
-                        // İstek başlıklarını manipüle etmek için hls.js dahili ayarı
+                        lowLatencyMode: false, // Donmaları engellemek için kararlı moda çekildi
+                        backBufferLength: 30,
+                        maxBufferLength: 30,
+                        maxMaxBufferLength: 60,
+                        liveSyncDurationCount: 3,
+                        manifestLoadingMaxRetry: 10,
+                        manifestLoadingRetryDelay: 1000,
+                        fragLoadingMaxRetry: 10,
+                        fragLoadingRetryDelay: 1000,
+                        // OTT cihaz başlıklarını taklit etme katmanı
                         xhrSetup: function (xhr, url) {
-                            xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+                            xhr.withCredentials = false; // CORS bloklarını aşmak için false olmalı
+                            if (xhr.setRequestHeader) {
+                                // İstekleri akıllı televizyon veya lisanslı uygulama gibi gösterir
+                                xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+                            }
                         }
                     });
 
-                    hls.loadSource(securedUrl);
+                    hls.loadSource(finalUrl);
                     hls.attachMedia(video);
                     
                     hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                        video.play().catch(e => {
-                            // Birinci proxyde hata olursa alternatif bypass moduna geç
-                            video.src = ALT_CORS_PROXY + encodeURIComponent(url);
-                            video.load();
-                            video.play().catch(err => console.log(err));
+                        video.play().catch(() => {
+                            // Tarayıcı otomatik oynatma engeline takılırsa sessizce yüklemeye devam et
+                            console.log("Kullanıcı etkileşimi bekleniyor.");
                         });
                     });
 
@@ -739,34 +767,47 @@
                         if (data.fatal) {
                             switch (data.type) {
                                 case Hls.ErrorTypes.NETWORK_ERROR:
-                                    hls.startLoad();
+                                    console.log("Ağ hatası tespit edildi, yeni proxy deneniyor...");
+                                    hls.destroy();
+                                    nextFallback();
                                     break;
                                 case Hls.ErrorTypes.MEDIA_ERROR:
                                     hls.recoverMediaError();
                                     break;
                                 default:
-                                    // Tam kilitlenmede doğrudan ham adrese veya alternatif kanala yönlendir
-                                    video.src = url;
-                                    video.load();
-                                    video.play().catch(e => console.log(e));
+                                    hls.destroy();
+                                    nextFallback();
                                     break;
                             }
                         }
                     });
-                } else {
-                    // Safari iOS yerel bypass mimarisi
-                    video.src = securedUrl;
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Safari ve iOS için native player katmanı
+                    video.src = finalUrl;
                     video.load();
                     video.play().catch(e => {
-                        video.src = url;
-                        video.play().catch(err => console.log(err));
+                        nextFallback();
                     });
+                } else {
+                    // MP4 / MKV VOD Akışları için direkt bağlama
+                    video.src = streamUrl;
+                    video.load();
+                    video.play().catch(e => console.log("Oynatılamadı:", e));
                 }
-            } else {
-                video.src = url;
-                video.load();
-                video.play().catch(e => console.log(e));
             }
+
+            function nextFallback() {
+                currentProxyIndex++;
+                if (currentProxyIndex < PROXY_POOL.length) {
+                    console.log(`Geçiş Yapılıyor: Proxy Sıra [${currentProxyIndex}]`);
+                    attemptLoad(url, currentProxyIndex);
+                } else {
+                    mediaTitleOverlay.innerText = "Yayın Açılamadı (CORS/Token Hatası)";
+                }
+            }
+
+            // Oynatmayı ilk proxy ile başlatıyoruz
+            attemptLoad(url, currentProxyIndex);
 
             playBtn.innerHTML = '<i class="fas fa-pause"></i>';
             centerPlayBtn.innerHTML = '<i class="fas fa-pause"></i>';
