@@ -691,54 +691,42 @@
             });
         }
 
-        // --- ULTRA HIZLI VE GELİŞMİŞ IPTV OYNATMA MOTORU (CORS VE DEVLET KANALLARI İÇİN GÜNCELLENDİ) ---
+        // --- OTT PLAYER SİSTEMİ GİBİ GELİŞTİRİLMİŞ CANLI KANAL MOTORU ---
         function playMedia(url, title) {
             if (hls) {
                 hls.destroy();
                 hls = null;
             }
 
-            // Medya Başlığını Güncelle
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            // Canlı ve HLS akışlar için genişletilmiş kontrol
-            const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || currentMainTab === 'live';
-            
-            // AzTV, İctimai TV ve Idman TV gibi CORS korumalı akışların tespiti
-            const isCorsSensitive = url.toLowerCase().includes('aztv') || url.toLowerCase().includes('ictimai') || url.toLowerCase().includes('idman');
-
-            if (isHlsStream) {
-                // Eğer kanal AzTV/İctimai ise veya mobil cihazın yerel oynatıcısı HLS destekliyorsa native oynatımı zorla (CORS engelini bypass eder)
-                if (isCorsSensitive && (video.canPlayType('application/vnd.apple.mpegurl') || video.canPlayType('audio/mpegurl') || video.canPlayType('video/mp4'))) {
-                    video.src = url;
-                    video.load();
-                    video.play().catch(e => console.log("Yerel HLS oynatma hatası:", e));
-                } else if (Hls.isSupported()) {
+            // OTT Player mimarisi: Canlı yayınlar için agresif önbellek yönetimi ve sıfır gecikme modu
+            if (currentMainTab === 'live' || url.includes('.m3u8') || url.includes('.ts')) {
+                if (Hls.isSupported()) {
                     hls = new Hls({
-                        maxBufferLength: 30,
-                        maxMaxBufferLength: 60,
-                        liveSyncDurationCount: 3,
-                        maxBufferHole: 0.5,
                         enableWorker: true,
-                        lowLatencyMode: true,
-                        abrEwmaDefaultEstimate: 5000000,
-                        manifestLoadingMaxRetry: 30, // Hata toleransı artırıldı
-                        manifestLoadingRetryDelay: 1000,
-                        levelLoadingMaxRetry: 30,
-                        levelLoadingRetryDelay: 1000,
-                        fragLoadingMaxRetry: 30,
-                        fragLoadingRetryDelay: 1000,
-                        stretchShortVideoTrack: true,
-                        autoStartLoad: true,
-                        cors: true // Güvenlik modunu tetikle
+                        lowLatencyMode: true,           // OTT tarzı ultra düşük gecikme modu
+                        backBufferLength: 0,            // Canlı yayında hafızayı şişirmemesi için geçmişi temizle
+                        maxBufferLength: 10,            // Donmaları engellemek için ideal canlı yayın tampon boyutu
+                        maxMaxBufferLength: 20,
+                        liveSyncDuration: 1.5,          // Gerçek zamanlı canlı yayına maksimum yakınsama
+                        liveMaxLatencyDuration: 4,      // Yayının geri kalmasını engeller, OTT akıcılığı sağlar
+                        manifestLoadingMaxRetry: 50,    // İstikrarsız IPTV linkleri için yüksek tolerans
+                        manifestLoadingRetryDelay: 500,
+                        fragLoadingMaxRetry: 50,
+                        fragLoadingRetryDelay: 500,
+                        fpsDroppedMonitoringPeriod: 2000,
+                        abrEwmaDefaultEstimate: 8000000 // Hızlı açılış bant genişliği tahmini
                     });
+
                     hls.loadSource(url);
                     hls.attachMedia(video);
-                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                        video.play().catch(e => console.log(e));
-                    });
                     
-                    hls.on(Hls.Events.ERROR, function (event, data) {
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        video.play().catch(e => console.log("OTT Canlı Oynatım Başlatılamadı:", e));
+                    });
+
+                    hls.on(Hls.Events.ERROR, function(event, data) {
                         if (data.fatal) {
                             switch (data.type) {
                                 case Hls.ErrorTypes.NETWORK_ERROR:
@@ -748,7 +736,7 @@
                                     hls.recoverMediaError();
                                     break;
                                 default:
-                                    // Eğer HLS motoru tamamen kilitlenirse yayının donmasını önlemek için ham URL'ye geç
+                                    // Tam kilitlenmede yerel oynatıcıya pasla (CORS ve Akış Kurtarma)
                                     video.src = url;
                                     video.load();
                                     video.play().catch(e => console.log(e));
@@ -756,16 +744,14 @@
                             }
                         }
                     });
-                } else if (video.canPlayType('application/vnd.apple.mpegurl') || video.canPlayType('audio/mpegurl')) {
-                    video.src = url;
-                    video.load();
-                    video.play().catch(e => console.log(e));
                 } else {
+                    // Safari veya Native HLS destekleyen mobil tarayıcılar (OTT Doğrudan Akış)
                     video.src = url;
                     video.load();
                     video.play().catch(e => console.log(e));
                 }
             } else {
+                // Diziler ve VOD içerikler için normal oynatma standardı korunur
                 video.src = url;
                 video.load();
                 video.play().catch(e => console.log(e));
@@ -802,7 +788,7 @@
         }
 
         function seekVideo(event) {
-            if (!video.duration || !isFinite(video.duration)) return;
+            if (!video.duration || !isFinite(video.duration) || currentMainTab === 'live') return;
             const rect = progressBar.getBoundingClientRect();
             const clickX = event.clientX - rect.left;
             const seekTime = (clickX / rect.width) * video.duration;
@@ -823,8 +809,8 @@
             showControlsTemporarily();
         }
 
-        function forward() { video.currentTime += 10; showControlsTemporarily(); }
-        function rewind() { video.currentTime -= 10; showControlsTemporarily(); }
+        function forward() { if(currentMainTab !== 'live') video.currentTime += 10; showControlsTemporarily(); }
+        function rewind() { if(currentMainTab !== 'live') video.currentTime -= 10; showControlsTemporarily(); }
 
         videoContainer.addEventListener('click', function(e) {
             if (e.target === video || e.target === videoContainer || e.target === mediaTitleOverlay) {
@@ -895,14 +881,12 @@
                 alert("Cihazınız PiP özelliğini desteklemiyor.");
             } finally {
                 isChangingPip = false;
-                // PiP geçişinde video durumunu koru ve oynatmaya devam et
                 if (!video.paused) {
                     video.play().catch(e => console.log(e));
                 }
             }
         }
 
-        // PiP modundan çıkıldığında videonun durmasını engelleyen event listener'lar
         video.addEventListener('leavepictureinpicture', () => {
             setTimeout(() => {
                 if (video.paused) {
