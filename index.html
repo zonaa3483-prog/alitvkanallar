@@ -478,7 +478,7 @@
 
             <div class="control-row" onclick="event.stopPropagation();">
                 <div class="control-group">
-                    <button class="control-btn" onclick="togglePlay()" id="playBtn"><i class="fas fa-play"></i></button>
+                    <button class="control-btn" onclick="togglePlay()" id="playBtn"><i class="fas fa-pause"></i></button>
                     <button class="control-btn" onclick="rewind()"><i class="fas fa-undo"></i></button>
                     <button class="control-btn" onclick="forward()"><i class="fas fa-redo"></i></button>
                 </div>
@@ -607,7 +607,7 @@
                 const items = PLAYLIST_DATA.series[catName];
                 
                 const accordionItem = document.createElement('div');
-                accordionItem.className = 'accordion-item active'; // Tüm listeler başlangıçta açık gelir
+                accordionItem.className = 'accordion-item'; // Sadece 'active' kaldırıldı, artık başlangıçta kapalı gelecek
                 
                 const header = document.createElement('div');
                 header.className = 'accordion-header';
