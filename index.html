@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>OTT Mobile M3U Player</title>
-    <!-- FontAwesome İkonları -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- HLS.js Kütüphanesi (IPTV için Kararlı ve Donmasız Versiyon) -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.10/dist/hls.min.js"></script>
     <style>
         /* Varsayılan Tema: BEYAZ (Gündüz Modu) */
@@ -445,31 +443,25 @@
 </head>
 <body>
 
-    <!-- Üst Yönetici Künyesi -->
     <div class="ceo-header">
         <i class="fas fa-user-shield"></i> CEO: Əli Məhərrəmov
     </div>
 
-    <!-- Oynatıcı Bölümü -->
     <div class="video-container" id="videoContainer">
-        <!-- Medya Bilgi Başlığı (Kanal / Dizi ve Bölüm Göstergesi) -->
         <div class="media-title-overlay" id="mediaTitleOverlay">Oynatılan Yayın Seçilmedi</div>
 
-        <!-- Yatay Mod Geri Dönüş Butonu -->
         <button class="landscape-back-btn" id="landscapeBackBtn" onclick="event.stopPropagation(); exitLandscape();" title="Geri Dön">
             <i class="fas fa-arrow-left"></i>
         </button>
 
         <video id="mainPlayer" playsinline></video>
         
-        <!-- Orta Kontrol Butonları -->
         <div class="center-controls">
             <button class="center-btn" onclick="event.stopPropagation(); rewind();"><i class="fas fa-backward"></i></button>
             <button class="center-btn" id="centerPlayBtn" onclick="event.stopPropagation(); togglePlay();"><i class="fas fa-play"></i></button>
             <button class="center-btn" onclick="event.stopPropagation(); forward();"><i class="fas fa-forward"></i></button>
         </div>
 
-        <!-- Alt Kontrol Barı -->
         <div class="video-controls" id="videoControls">
             <div class="timeline-container" onclick="event.stopPropagation();">
                 <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)">
@@ -493,7 +485,6 @@
         </div>
     </div>
 
-    <!-- İçerik Listesi Bölümü -->
     <div class="content-area">
         <div class="top-bar-tools">
             <div class="main-tabs">
@@ -518,16 +509,20 @@
     <script>
         const INTERNAL_M3U_URL = "https://raw.githubusercontent.com/zonaa3483-prog/eli-iptv-siyahi/refs/heads/main/alimtv.m3u"; 
 
+        // GLOBAL CORS PROXY MOTORU (Tarayıcıyı Chrome gibi gösterip Vercel bağını gizler)
+        const CORS_PROXY = "https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?container=focus&refresh=2592000&url=";
+        const ALT_CORS_PROXY = "https://api.allorigins.win/raw?url=";
+
         const PLAYLIST_DATA = {
             live: {},
             series: {}
         };
 
         let currentMainTab = 'live';
-        let currentTheme = 'light'; // İlk açılış beyaz mod
+        let currentTheme = 'light'; 
         let hls = null;
         let controlsTimeout = null;
-        let isChangingPip = false; // PiP mod geçiş koruması
+        let isChangingPip = false; 
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -539,10 +534,11 @@
         const timeDisplay = document.getElementById('timeDisplay');
         const mediaTitleOverlay = document.getElementById('mediaTitleOverlay');
 
-        // --- M3U PARSER (FİLTRELİ VE IPTV UYUMLU) ---
+        // --- M3U PARSER ---
         async function fetchAndParseM3U() {
             try {
-                const response = await fetch(INTERNAL_M3U_URL);
+                // Listenin kendisini de proxy üzerinden çekerek güvenlik duvarlarına takılmasını önlüyoruz
+                const response = await fetch(ALT_CORS_PROXY + encodeURIComponent(INTERNAL_M3U_URL));
                 if (!response.ok) throw new Error("Ağ hatası oluştu.");
                 const text = await response.text();
                 
@@ -566,13 +562,11 @@
                     } else if (line.startsWith('http') && currentItemInfo) {
                         const url = line;
                         
-                        // Akış türünü tespit etme
                         let type = 'live';
                         if (url.includes('/series/') || url.endsWith('.mp4') || url.endsWith('.mkv') || url.includes('/vod/') || currentItemInfo.group.toLowerCase().includes('dizi') || currentItemInfo.group.toLowerCase().includes('series')) {
                             type = 'series';
                         }
 
-                        // KRİTİK FİLTRE: Eğer akış Canlı Kanallardaysa ve adında Kurtlar Vadisi geçiyorsa LİSTEYE EKLEME
                         const isKurtlarVadisi = currentItemInfo.title.toLowerCase().includes('kurtlar vadisi') || currentItemInfo.group.toLowerCase().includes('kurtlar vadisi');
                         
                         if (type === 'live' && isKurtlarVadisi) {
@@ -691,7 +685,7 @@
             });
         }
 
-        // --- OTT PLAYER SİSTEMİ GİBİ GELİŞTİRİLMİŞ CANLI KANAL MOTORU ---
+        // --- ANTI-CORS DESTEKLİ OTT KANAL MOTORU ---
         function playMedia(url, title) {
             if (hls) {
                 hls.destroy();
@@ -700,30 +694,45 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            // OTT Player mimarisi: Canlı yayınlar için agresif önbellek yönetimi ve sıfır gecikme modu
+            // Vercel kökenini gizlemek için güvenli proxy linkini hazırlıyoruz
+            let securedUrl = url;
+            if (currentMainTab === 'live' && !url.includes('localhost')) {
+                // Kanalları kandıran ana akıllı URL yapısı
+                securedUrl = CORS_PROXY + encodeURIComponent(url);
+            }
+
             if (currentMainTab === 'live' || url.includes('.m3u8') || url.includes('.ts')) {
                 if (Hls.isSupported()) {
                     hls = new Hls({
                         enableWorker: true,
-                        lowLatencyMode: true,           // OTT tarzı ultra düşük gecikme modu
-                        backBufferLength: 0,            // Canlı yayında hafızayı şişirmemesi için geçmişi temizle
-                        maxBufferLength: 10,            // Donmaları engellemek için ideal canlı yayın tampon boyutu
+                        lowLatencyMode: true,
+                        backBufferLength: 0,
+                        maxBufferLength: 10,
                         maxMaxBufferLength: 20,
-                        liveSyncDuration: 1.5,          // Gerçek zamanlı canlı yayına maksimum yakınsama
-                        liveMaxLatencyDuration: 4,      // Yayının geri kalmasını engeller, OTT akıcılığı sağlar
-                        manifestLoadingMaxRetry: 50,    // İstikrarsız IPTV linkleri için yüksek tolerans
+                        liveSyncDuration: 1.5,
+                        liveMaxLatencyDuration: 4,
+                        manifestLoadingMaxRetry: 50,
                         manifestLoadingRetryDelay: 500,
                         fragLoadingMaxRetry: 50,
                         fragLoadingRetryDelay: 500,
                         fpsDroppedMonitoringPeriod: 2000,
-                        abrEwmaDefaultEstimate: 8000000 // Hızlı açılış bant genişliği tahmini
+                        abrEwmaDefaultEstimate: 8000000,
+                        // İstek başlıklarını manipüle etmek için hls.js dahili ayarı
+                        xhrSetup: function (xhr, url) {
+                            xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+                        }
                     });
 
-                    hls.loadSource(url);
+                    hls.loadSource(securedUrl);
                     hls.attachMedia(video);
                     
                     hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                        video.play().catch(e => console.log("OTT Canlı Oynatım Başlatılamadı:", e));
+                        video.play().catch(e => {
+                            // Birinci proxyde hata olursa alternatif bypass moduna geç
+                            video.src = ALT_CORS_PROXY + encodeURIComponent(url);
+                            video.load();
+                            video.play().catch(err => console.log(err));
+                        });
                     });
 
                     hls.on(Hls.Events.ERROR, function(event, data) {
@@ -736,7 +745,7 @@
                                     hls.recoverMediaError();
                                     break;
                                 default:
-                                    // Tam kilitlenmede yerel oynatıcıya pasla (CORS ve Akış Kurtarma)
+                                    // Tam kilitlenmede doğrudan ham adrese veya alternatif kanala yönlendir
                                     video.src = url;
                                     video.load();
                                     video.play().catch(e => console.log(e));
@@ -745,13 +754,15 @@
                         }
                     });
                 } else {
-                    // Safari veya Native HLS destekleyen mobil tarayıcılar (OTT Doğrudan Akış)
-                    video.src = url;
+                    // Safari iOS yerel bypass mimarisi
+                    video.src = securedUrl;
                     video.load();
-                    video.play().catch(e => console.log(e));
+                    video.play().catch(e => {
+                        video.src = url;
+                        video.play().catch(err => console.log(err));
+                    });
                 }
             } else {
-                // Diziler ve VOD içerikler için normal oynatma standardı korunur
                 video.src = url;
                 video.load();
                 video.play().catch(e => console.log(e));
@@ -763,7 +774,7 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // --- SÜRE VE İLERLEME ÇUBUĞU (CANLI YAYIN KİLİTLENME KORUMALI) ---
+        // --- SÜRE VE İLERLEME ÇUBUĞU ---
         video.addEventListener('timeupdate', () => {
             if (video.duration && isFinite(video.duration) && video.duration > 0 && currentMainTab !== 'live') {
                 const current = formatTime(video.currentTime);
@@ -772,7 +783,6 @@
                 const percentage = (video.currentTime / video.duration) * 100;
                 progressFill.style.width = `${percentage}%`;
             } else {
-                // Canlı TV kanallarında ilerleme çubuğunu doldur ve Infinity hatasını önle
                 timeDisplay.innerText = "Canlı Yayın";
                 progressFill.style.width = '100%';
             }
@@ -868,7 +878,7 @@
             if (!document.fullscreenElement && videoContainer.classList.contains('landscape-mode')) exitLandscape();
         });
 
-        // --- KESİNTİSİZ PICTURE-IN-PICTURE (PiP) MOTORU ---
+        // --- PICTURE-IN-PICTURE (PiP) MOTORU ---
         async function togglePip() {
             try {
                 isChangingPip = true;
