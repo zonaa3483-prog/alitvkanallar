@@ -105,8 +105,8 @@
             transition: opacity 0.3s;
         }
 
-        .video-container:hover .video-controls,
-        .video-container:active .video-controls,
+        /* Kontrollerin görünürlük durumları */
+        .video-container.show-controls .video-controls,
         .video-controls.keep-visible {
             opacity: 1;
         }
@@ -178,8 +178,7 @@
             z-index: 10;
         }
 
-        .video-container:hover .center-controls,
-        .video-container:active .center-controls {
+        .video-container.show-controls .center-controls {
             opacity: 1;
             pointer-events: auto;
         }
@@ -477,6 +476,7 @@
         let currentMainTab = 'live';
         let currentTheme = 'dark';
         let hls = null;
+        let controlsTimeout = null;
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -639,46 +639,55 @@
             });
         }
 
-        // Gelişmiş Canlı Yayın ve HLS Oynatıcı Sistemi
+        // Gelişmiş Canlı Yayın ve HLS Oynatıcı Sistemi (AzTV ve tüm kanalları açmaya zorlayan stabil mod)
         function playMedia(url) {
-            // Eski hls instance'ı varsa temizle temiz açılması için
             if (hls) {
                 hls.destroy();
             }
 
+            // Canlı yayın akışları veya m3u8 uzantıları için HLS.js optimizasyon ayarları
             if (url.includes('.m3u8') || currentMainTab === 'live') {
                 if (Hls.isSupported()) {
                     hls = new Hls({
-                        maxMaxBufferLength: 10,
-                        liveSyncDurationCount: 3
+                        maxMaxBufferLength: 20,          // Tamponlama mesafesini artırır
+                        liveSyncDurationCount: 3,        // Canlı yayını en kararlı noktadan yakalar
+                        enableWorker: true,              // Performans için arka plan işçilerini kullanır
+                        lowLatencyMode: false,           // Kesintisiz yayın için düşük gecikme yerine stabiliteyi seçer
+                        backBufferLength: 30
                     });
                     hls.loadSource(url);
                     hls.attachMedia(video);
                     hls.on(Hls.Events.MANIFEST_PARSED, function() {
                         video.play().catch(e => console.log("Oynatma hatası:", e));
                     });
+                    
+                    // Gelişmiş Hata Kurtarma (Açılmayan akışları otomatik olarak tekrar dener ve zorlar)
                     hls.on(Hls.Events.ERROR, function (event, data) {
                         if (data.fatal) {
                             switch (data.type) {
                                 case Hls.ErrorTypes.NETWORK_ERROR:
+                                    console.log("Ağ hatası kurtarılıyor...");
                                     hls.startLoad();
                                     break;
                                 case Hls.ErrorTypes.MEDIA_ERROR:
+                                    console.log("Medya hatası kurtarılıyor...");
                                     hls.recoverMediaError();
                                     break;
                                 default:
+                                    console.log("Hata kurtarılamadı, yeniden başlatılıyor...");
+                                    hls.loadSource(url);
                                     break;
                             }
                         }
                     });
                 } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    // Safari ve iOS desteği için native oynatım
+                    // Safari ve iOS için native oynatım zorlaması
                     video.src = url;
                     video.load();
                     video.play().catch(e => console.log("Oynatma hatası:", e));
                 }
             } else {
-                // Standart MP4/MKV Vod Dosyaları İçin
+                // Standart MP4/MKV VOD Dosyaları İçin
                 video.src = url;
                 video.load();
                 video.play().catch(e => console.log("Oynatma hatası:", e));
@@ -686,10 +695,11 @@
 
             playBtn.innerHTML = '<i class="fas fa-pause"></i>';
             centerPlayBtn.innerHTML = '<i class="fas fa-pause"></i>';
+            showControlsTemporarily();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // --- YOUTUBE TARZI SÜRE VE İLERLEME ÇUBUĞU ---
+        // --- SÜRE VE İLERLEME ÇUBUĞU ---
         video.addEventListener('timeupdate', () => {
             if (video.duration && isFinite(video.duration) && video.duration > 0) {
                 const current = formatTime(video.currentTime);
@@ -736,18 +746,36 @@
                 playBtn.innerHTML = '<i class="fas fa-play"></i>';
                 centerPlayBtn.innerHTML = '<i class="fas fa-play"></i>';
             }
+            showControlsTemporarily();
         }
 
-        function forward() { video.currentTime += 10; }
-        function rewind() { video.currentTime -= 10; }
+        function forward() { video.currentTime += 10; showControlsTemporarily(); }
+        function rewind() { video.currentTime -= 10; showControlsTemporarily(); }
 
-        // Video alanına veya üzerine vurulduğunda çalışacak akıllı döndürme tetikleyicisi
+        // --- AKILLI DOKUNMA/TIKLAMA YÖNETİMİ ---
+        // İstediğin gibi: Videonun üzerine tıklandığında oynatma/sarma/duraklatma YAPMAZ.
+        // Sadece butonları ve alt paneli ekrana getirir / gizler.
         videoContainer.addEventListener('click', function(e) {
-            // Kontroller veya butonlar tıklanmadıysa döngüyü/kontrolleri tetikle
-            if(e.target === video || e.target === videoContainer) {
-                videoControls.classList.toggle('keep-visible');
+            if (e.target === video || e.target === videoContainer) {
+                if (videoContainer.classList.contains('show-controls')) {
+                    videoContainer.classList.remove('show-controls');
+                    if (controlsTimeout) clearTimeout(controlsTimeout);
+                } else {
+                    showControlsTemporarily();
+                }
             }
         });
+
+        // Kontrolleri ekrana getiren ve 3 saniye sonra otomatik gizleyen fonksiyon
+        function showControlsTemporarily() {
+            videoContainer.classList.add('show-controls');
+            if (controlsTimeout) clearTimeout(controlsTimeout);
+            controlsTimeout = setTimeout(() => {
+                if (!video.paused) { // Video duraklatılmışsa kontroller ekranda kalır
+                    videoContainer.classList.remove('show-controls');
+                }
+            }, 3000);
+        }
 
         function toggleFullscreen() {
             if (!document.fullscreenElement) {
@@ -766,7 +794,6 @@
             const isLandscape = videoContainer.classList.toggle('landscape-mode');
             if (isLandscape) {
                 document.body.style.overflow = 'hidden';
-                // Eğer mobil tarayıcı API'yi destekliyorsa ekranı tam ekran yapıp tam döndürür
                 if (videoContainer.requestFullscreen) {
                     videoContainer.requestFullscreen().then(() => {
                         if (screen.orientation && screen.orientation.lock) {
@@ -783,6 +810,7 @@
                     screen.orientation.unlock();
                 }
             }
+            showControlsTemporarily();
         }
 
         async function togglePip() {
