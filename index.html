@@ -691,81 +691,72 @@
             });
         }
 
-        // --- ULTRA HIZLI VE GELİŞMİŞ IPTV OYNATMA MOTORU (CORS VE DEVLET KANALLARI İÇİN GÜNCELLENDİ) ---
+        // --- TELEVİZİO KALİTESİNDE ULTRA IPTV OYNATMA MOTORU (CORS VE DEVLET KANALLARI İÇİN ÖZEL) ---
         function playMedia(url, title) {
             if (hls) {
                 hls.destroy();
                 hls = null;
             }
 
-            // Medya Başlığını Güncelle
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            // Canlı ve HLS akışlar için genişletilmiş kontrol
             const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || currentMainTab === 'live';
             
-            // AzTV, İctimai TV ve Idman TV gibi CORS korumalı akışların tespiti
-            const isCorsSensitive = url.toLowerCase().includes('aztv') || url.toLowerCase().includes('ictimai') || url.toLowerCase().includes('idman');
+            // Televizio benzeri kusursuz yürütme için gelişmiş Hls.js konfigürasyonu
+            if (isHlsStream && Hls.isSupported()) {
+                hls = new Hls({
+                    maxBufferLength: 45,            // Canlı yayın tampon belleği artırıldı (Donmayı önler)
+                    maxMaxBufferLength: 90,
+                    liveSyncDurationCount: 3,       // Canlı yayın senkronizasyon derinliği
+                    maxBufferHole: 0.8,             // Küçük veri boşluklarında yayının takılmasını engeller
+                    enableWorker: true,             // Arka plan işlemcisi kullanımı aktif
+                    lowLatencyMode: false,          // Devlet kanallarında stabilite için ultra düşük gecikme yerine kararlı moda geçildi
+                    abrEwmaDefaultEstimate: 5000000,
+                    manifestLoadingMaxRetry: 50,    // Bağlantı kopmalarında Televizio gibi sürekli yeniden dener
+                    manifestLoadingRetryDelay: 500,
+                    levelLoadingMaxRetry: 50,
+                    levelLoadingRetryDelay: 500,
+                    fragLoadingMaxRetry: 50,
+                    fragLoadingRetryDelay: 500,
+                    stretchShortVideoTrack: true,
+                    autoStartLoad: true,
+                    xhrSetup: function (xhr, urlInfo) {
+                        xhr.withCredentials = false; // CORS 'Access-Control-Allow-Origin' başlığı hatalarını bypass eder
+                    }
+                });
 
-            if (isHlsStream) {
-                // Eğer kanal AzTV/İctimai ise veya mobil cihazın yerel oynatıcısı HLS destekliyorsa native oynatımı zorla (CORS engelini bypass eder)
-                if (isCorsSensitive && (video.canPlayType('application/vnd.apple.mpegurl') || video.canPlayType('audio/mpegurl') || video.canPlayType('video/mp4'))) {
-                    video.src = url;
-                    video.load();
-                    video.play().catch(e => console.log("Yerel HLS oynatma hatası:", e));
-                } else if (Hls.isSupported()) {
-                    hls = new Hls({
-                        maxBufferLength: 30,
-                        maxMaxBufferLength: 60,
-                        liveSyncDurationCount: 3,
-                        maxBufferHole: 0.5,
-                        enableWorker: true,
-                        lowLatencyMode: true,
-                        abrEwmaDefaultEstimate: 5000000,
-                        manifestLoadingMaxRetry: 30, // Hata toleransı artırıldı
-                        manifestLoadingRetryDelay: 1000,
-                        levelLoadingMaxRetry: 30,
-                        levelLoadingRetryDelay: 1000,
-                        fragLoadingMaxRetry: 30,
-                        fragLoadingRetryDelay: 1000,
-                        stretchShortVideoTrack: true,
-                        autoStartLoad: true,
-                        cors: true // Güvenlik modunu tetikle
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.play().catch(e => {
+                        // Tarayıcı otomatik oynatma engeline takılırsa sessizce yüklemeyi dene
+                        video.muted = true;
+                        video.play().catch(err => console.log("Yayın başlatılamadı:", err));
                     });
-                    hls.loadSource(url);
-                    hls.attachMedia(video);
-                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                        video.play().catch(e => console.log(e));
-                    });
-                    
-                    hls.on(Hls.Events.ERROR, function (event, data) {
-                        if (data.fatal) {
-                            switch (data.type) {
-                                case Hls.ErrorTypes.NETWORK_ERROR:
-                                    hls.startLoad();
-                                    break;
-                                case Hls.ErrorTypes.MEDIA_ERROR:
-                                    hls.recoverMediaError();
-                                    break;
-                                default:
-                                    // Eğer HLS motoru tamamen kilitlenirse yayının donmasını önlemek için ham URL'ye geç
-                                    video.src = url;
-                                    video.load();
-                                    video.play().catch(e => console.log(e));
-                                    break;
-                            }
+                });
+                
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                // Ağ hatası aldığında akışı kesme, Televizio gibi arka planda yeniden yükle
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                // HLS.js tamamen çökerse, yerel HTML5 oynatıcısına pasla (Safari/iOS uyumluluğu koruması)
+                                video.src = url;
+                                video.load();
+                                video.play().catch(e => console.log(e));
+                                break;
                         }
-                    });
-                } else if (video.canPlayType('application/vnd.apple.mpegurl') || video.canPlayType('audio/mpegurl')) {
-                    video.src = url;
-                    video.load();
-                    video.play().catch(e => console.log(e));
-                } else {
-                    video.src = url;
-                    video.load();
-                    video.play().catch(e => console.log(e));
-                }
+                    }
+                });
             } else {
+                // HLS desteklemeyen ortamlar veya direkt MP4/MKV video akışları (Diziler sekmesi için)
                 video.src = url;
                 video.load();
                 video.play().catch(e => console.log(e));
@@ -895,14 +886,12 @@
                 alert("Cihazınız PiP özelliğini desteklemiyor.");
             } finally {
                 isChangingPip = false;
-                // PiP geçişinde video durumunu koru ve oynatmaya devam et
                 if (!video.paused) {
                     video.play().catch(e => console.log(e));
                 }
             }
         }
 
-        // PiP modundan çıkıldığında videonun durmasını engelleyen event listener'lar
         video.addEventListener('leavepictureinpicture', () => {
             setTimeout(() => {
                 if (video.paused) {
