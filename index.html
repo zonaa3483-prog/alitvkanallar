@@ -691,10 +691,11 @@
             });
         }
 
-        // --- ULTRA HIZLI VE GELİŞMİŞ IPTV OYNATMA MOTORU ---
+        // --- ULTRA HIZLI VE GELİŞMİŞ IPTV OYNATMA MOTORU (CORS VE DEVLET KANALLARI İÇİN GÜNCELLENDİ) ---
         function playMedia(url, title) {
             if (hls) {
                 hls.destroy();
+                hls = null;
             }
 
             // Medya Başlığını Güncelle
@@ -702,9 +703,17 @@
 
             // Canlı ve HLS akışlar için genişletilmiş kontrol
             const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || currentMainTab === 'live';
+            
+            // AzTV, İctimai TV ve Idman TV gibi CORS korumalı akışların tespiti
+            const isCorsSensitive = url.toLowerCase().includes('aztv') || url.toLowerCase().includes('ictimai') || url.toLowerCase().includes('idman');
 
             if (isHlsStream) {
-                if (Hls.isSupported()) {
+                // Eğer kanal AzTV/İctimai ise veya mobil cihazın yerel oynatıcısı HLS destekliyorsa native oynatımı zorla (CORS engelini bypass eder)
+                if (isCorsSensitive && (video.canPlayType('application/vnd.apple.mpegurl') || video.canPlayType('audio/mpegurl') || video.canPlayType('video/mp4'))) {
+                    video.src = url;
+                    video.load();
+                    video.play().catch(e => console.log("Yerel HLS oynatma hatası:", e));
+                } else if (Hls.isSupported()) {
                     hls = new Hls({
                         maxBufferLength: 30,
                         maxMaxBufferLength: 60,
@@ -713,15 +722,15 @@
                         enableWorker: true,
                         lowLatencyMode: true,
                         abrEwmaDefaultEstimate: 5000000,
-                        manifestLoadingMaxRetry: 15,
-                        manifestLoadingRetryDelay: 500,
-                        levelLoadingMaxRetry: 15,
-                        levelLoadingRetryDelay: 500,
-                        fragLoadingMaxRetry: 15,
-                        fragLoadingRetryDelay: 500,
-                        // Canlı TV yayın uyumluluğu için eklenen özel parametreler
+                        manifestLoadingMaxRetry: 30, // Hata toleransı artırıldı
+                        manifestLoadingRetryDelay: 1000,
+                        levelLoadingMaxRetry: 30,
+                        levelLoadingRetryDelay: 1000,
+                        fragLoadingMaxRetry: 30,
+                        fragLoadingRetryDelay: 1000,
                         stretchShortVideoTrack: true,
-                        autoStartLoad: true
+                        autoStartLoad: true,
+                        cors: true // Güvenlik modunu tetikle
                     });
                     hls.loadSource(url);
                     hls.attachMedia(video);
@@ -739,7 +748,10 @@
                                     hls.recoverMediaError();
                                     break;
                                 default:
-                                    hls.loadSource(url);
+                                    // Eğer HLS motoru tamamen kilitlenirse yayının donmasını önlemek için ham URL'ye geç
+                                    video.src = url;
+                                    video.load();
+                                    video.play().catch(e => console.log(e));
                                     break;
                             }
                         }
@@ -749,7 +761,6 @@
                     video.load();
                     video.play().catch(e => console.log(e));
                 } else {
-                    // Ham akışlar (Direct TS link) direkt yükleme alternatifi
                     video.src = url;
                     video.load();
                     video.play().catch(e => console.log(e));
@@ -766,15 +777,16 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // --- SÜRE VE İLERLEME ÇUBUĞU ---
+        // --- SÜRE VE İLERLEME ÇUBUĞU (CANLI YAYIN KİLİTLENME KORUMALI) ---
         video.addEventListener('timeupdate', () => {
-            if (video.duration && isFinite(video.duration) && video.duration > 0) {
+            if (video.duration && isFinite(video.duration) && video.duration > 0 && currentMainTab !== 'live') {
                 const current = formatTime(video.currentTime);
                 const total = formatTime(video.duration);
                 timeDisplay.innerText = `${current} / ${total}`;
                 const percentage = (video.currentTime / video.duration) * 100;
                 progressFill.style.width = `${percentage}%`;
             } else {
+                // Canlı TV kanallarında ilerleme çubuğunu doldur ve Infinity hatasını önle
                 timeDisplay.innerText = "Canlı Yayın";
                 progressFill.style.width = '100%';
             }
