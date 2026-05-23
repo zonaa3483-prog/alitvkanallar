@@ -691,8 +691,13 @@
             });
         }
 
-        // --- TELEVİZİO KALİTESİNDE ULTRA IPTV OYNATMA MOTORU (CORS VE DEVLET KANALLARI İÇİN ÖZEL) ---
+        // --- TELEVİZİO VE OTT-PLAY KALİTESİNDE ULTRA IPTV OYNATMA MOTORU ---
         function playMedia(url, title) {
+            // OTT-PLAY SİSTEMİ ÖZELLİĞİ: Kanal geçişinde oynatıcıyı, kaynak belleğini ve DOM elementini tamamen sıfırla
+            video.pause();
+            video.removeAttribute('src'); 
+            video.load();
+
             if (hls) {
                 hls.destroy();
                 hls = null;
@@ -702,26 +707,22 @@
 
             const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || currentMainTab === 'live';
             
-            // Televizio benzeri kusursuz yürütme için gelişmiş Hls.js konfigürasyonu
             if (isHlsStream && Hls.isSupported()) {
+                // OTT-Play / Televizio standardında, ses kodek senkronizasyonlu kararlı Hls konfigürasyonu
                 hls = new Hls({
-                    maxBufferLength: 45,            // Canlı yayın tampon belleği artırıldı (Donmayı önler)
-                    maxMaxBufferLength: 90,
-                    liveSyncDurationCount: 3,       // Canlı yayın senkronizasyon derinliği
-                    maxBufferHole: 0.8,             // Küçük veri boşluklarında yayının takılmasını engeller
-                    enableWorker: true,             // Arka plan işlemcisi kullanımı aktif
-                    lowLatencyMode: false,          // Devlet kanallarında stabilite için ultra düşük gecikme yerine kararlı moda geçildi
-                    abrEwmaDefaultEstimate: 5000000,
-                    manifestLoadingMaxRetry: 50,    // Bağlantı kopmalarında Televizio gibi sürekli yeniden dener
-                    manifestLoadingRetryDelay: 500,
-                    levelLoadingMaxRetry: 50,
-                    levelLoadingRetryDelay: 500,
-                    fragLoadingMaxRetry: 50,
-                    fragLoadingRetryDelay: 500,
-                    stretchShortVideoTrack: true,
+                    maxBufferLength: 30,
+                    maxMaxBufferLength: 60,
+                    liveSyncDurationCount: 3,
+                    maxBufferHole: 0.5,
+                    enableWorker: true,
+                    lowLatencyMode: false,
                     autoStartLoad: true,
+                    // OTT-Play Özelliği: Ses donmalarını ve kanal geçişlerindeki ses kaymalarını engelleme ayarları
+                    enableSoftwareAES: true,
+                    overrideAudioAAC: true, 
+                    defaultAudioCodec: "mp4a.40.2", // Yaygın canlı yayın ses codec bileşeni zorlaması
                     xhrSetup: function (xhr, urlInfo) {
-                        xhr.withCredentials = false; // CORS 'Access-Control-Allow-Origin' başlığı hatalarını bypass eder
+                        xhr.withCredentials = false;
                     }
                 });
 
@@ -729,37 +730,53 @@
                 hls.attachMedia(video);
                 
                 hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    video.play().catch(e => {
-                        // Tarayıcı otomatik oynatma engeline takılırsa sessizce yüklemeyi dene
-                        video.muted = true;
-                        video.play().catch(err => console.log("Yayın başlatılamadı:", err));
-                    });
+                    // OTT-PLAY SES ÇÖZÜMÜ: Ses engelini aşmak için önce sesi açık başlatmayı dene, hata verirse geçici sessize alıp hemen aç
+                    video.muted = false;
+                    const playPromise = video.play();
+                    
+                    if (playPromise !== undefined) {
+                        playPromise.catch(error => {
+                            console.log("Autoplay koruması tetiklendi, OTT-Play yöntemi ile ses aktifleştiriliyor...");
+                            video.muted = true;
+                            video.play().then(() => {
+                                setTimeout(() => {
+                                    video.muted = false; // Oynatım başladıktan hemen sonra sesi devreye sokar
+                                }, 150);
+                            });
+                        });
+                    }
                 });
                 
                 hls.on(Hls.Events.ERROR, function (event, data) {
                     if (data.fatal) {
                         switch (data.type) {
                             case Hls.ErrorTypes.NETWORK_ERROR:
-                                // Ağ hatası aldığında akışı kesme, Televizio gibi arka planda yeniden yükle
                                 hls.startLoad();
                                 break;
                             case Hls.ErrorTypes.MEDIA_ERROR:
+                                // OTT-PLAY ÖZELLİĞİ: Canlı kanallarda ses/video uyumsuzluğu çökerse otomatik olarak kurtar ve yeniden senkronize et
                                 hls.recoverMediaError();
                                 break;
                             default:
-                                // HLS.js tamamen çökerse, yerel HTML5 oynatıcısına pasla (Safari/iOS uyumluluğu koruması)
                                 video.src = url;
                                 video.load();
-                                video.play().catch(e => console.log(e));
+                                video.muted = false;
+                                video.play().catch(e => {
+                                    video.muted = true;
+                                    video.play();
+                                });
                                 break;
                         }
                     }
                 });
             } else {
-                // HLS desteklemeyen ortamlar veya direkt MP4/MKV video akışları (Diziler sekmesi için)
                 video.src = url;
                 video.load();
-                video.play().catch(e => console.log(e));
+                video.muted = false;
+                video.play().catch(e => {
+                    video.muted = true;
+                    video.play().then(() => { video.muted = false; });
+                });
             }
 
             playBtn.innerHTML = '<i class="fas fa-pause"></i>';
@@ -777,7 +794,6 @@
                 const percentage = (video.currentTime / video.duration) * 100;
                 progressFill.style.width = `${percentage}%`;
             } else {
-                // Canlı TV kanallarında ilerleme çubuğunu doldur ve Infinity hatasını önle
                 timeDisplay.innerText = "Canlı Yayın";
                 progressFill.style.width = '100%';
             }
