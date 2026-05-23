@@ -82,13 +82,43 @@
             height: 100vh;
             aspect-ratio: auto;
             z-index: 9999;
-            transform: rotate(0deg); /* Mobil tarayıcı kontrolü için dinamik oryantasyon */
+            transform: rotate(0deg);
         }
 
         video {
             width: 100%;
             height: 100%;
             object-fit: contain;
+        }
+
+        /* Yatay Mod Geri Çıkış Oku */
+        .landscape-back-btn {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 1010;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        /* Yatay modda ve kontroller aktifken oku göster */
+        .video-container.landscape-mode .landscape-back-btn {
+            display: flex;
+        }
+        
+        .video-container.show-controls .landscape-back-btn {
+            opacity: 1;
         }
 
         /* Video Kontrolleri */
@@ -103,6 +133,7 @@
             padding: 5px 15px 10px 15px;
             opacity: 0;
             transition: opacity 0.3s;
+            z-index: 1005;
         }
 
         /* Kontrollerin görünürlük durumları */
@@ -175,7 +206,7 @@
             opacity: 0;
             transition: opacity 0.3s;
             pointer-events: none;
-            z-index: 10;
+            z-index: 1010;
         }
 
         .video-container.show-controls .center-controls {
@@ -405,6 +436,11 @@
 
     <!-- Oynatıcı Bölümü -->
     <div class="video-container" id="videoContainer">
+        <!-- Yatay Mod Geri Dönüş Butonu -->
+        <button class="landscape-back-btn" id="landscapeBackBtn" onclick="event.stopPropagation(); exitLandscape();" title="Geri Dön">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+
         <video id="mainPlayer" playsinline></video>
         
         <!-- Orta Sarma Butonları -->
@@ -487,7 +523,7 @@
         const progressFill = document.getElementById('progressFill');
         const timeDisplay = document.getElementById('timeDisplay');
 
-        // --- M3U PARSER (Aynen Korundu) ---
+        // --- M3U PARSER ---
         async function fetchAndParseM3U() {
             try {
                 const response = await fetch(INTERNAL_M3U_URL);
@@ -586,7 +622,6 @@
                 const accordionItem = document.createElement('div');
                 accordionItem.className = 'accordion-item';
                 
-                // Başlık Alanı
                 const header = document.createElement('div');
                 header.className = 'accordion-header';
                 header.innerHTML = `
@@ -594,7 +629,6 @@
                     <i class="fas fa-chevron-down"></i>
                 `;
                 
-                // İçerik Alanı (Açılır Liste)
                 const content = document.createElement('div');
                 content.className = 'accordion-content';
                 
@@ -625,7 +659,6 @@
                 accordionItem.appendChild(header);
                 accordionItem.appendChild(content);
                 
-                // Tıklama Olayı (Aç/Kapat)
                 header.onclick = () => {
                     const isActive = accordionItem.classList.contains('active');
                     document.querySelectorAll('.accordion-item').forEach(item => item.classList.remove('active'));
@@ -639,21 +672,27 @@
             });
         }
 
-        // Gelişmiş Canlı Yayın ve HLS Oynatıcı Sistemi (AzTV ve tüm kanalları açmaya zorlayan stabil mod)
+        // Gelişmiş Canlı Yayın Oynatıcı Sistemi (Tüm canlı kanalları sonuna kadar açmaya zorlayan stabil mod)
         function playMedia(url) {
             if (hls) {
                 hls.destroy();
             }
 
-            // Canlı yayın akışları veya m3u8 uzantıları için HLS.js optimizasyon ayarları
             if (url.includes('.m3u8') || currentMainTab === 'live') {
                 if (Hls.isSupported()) {
                     hls = new Hls({
-                        maxMaxBufferLength: 20,          // Tamponlama mesafesini artırır
-                        liveSyncDurationCount: 3,        // Canlı yayını en kararlı noktadan yakalar
-                        enableWorker: true,              // Performans için arka plan işçilerini kullanır
-                        lowLatencyMode: false,           // Kesintisiz yayın için düşük gecikme yerine stabiliteyi seçer
-                        backBufferLength: 30
+                        maxMaxBufferLength: 30,                 // Daha fazla video tamponlayarak kesilmeyi önler
+                        liveSyncDurationCount: 3,               // Canlı yayını en stabil noktadan senkronize eder
+                        enableWorker: true,                     // Performans işçilerini aktif tutar
+                        lowLatencyMode: false,                  // Donmasız yayın için gecikme toleransını esnetir
+                        backBufferLength: 60,
+                        // Akışı sonuna kadar zorlamak için bağlantı ve yükleme zaman aşımı esneklikleri:
+                        manifestLoadingMaxRetry: 10,
+                        manifestLoadingRetryDelay: 1000,
+                        levelLoadingMaxRetry: 10,
+                        levelLoadingRetryDelay: 1000,
+                        fragLoadingMaxRetry: 10,
+                        fragLoadingRetryDelay: 1000
                     });
                     hls.loadSource(url);
                     hls.attachMedia(video);
@@ -661,33 +700,31 @@
                         video.play().catch(e => console.log("Oynatma hatası:", e));
                     });
                     
-                    // Gelişmiş Hata Kurtarma (Açılmayan akışları otomatik olarak tekrar dener ve zorlar)
+                    // Gelişmiş Hata Kurtarma Döngüsü
                     hls.on(Hls.Events.ERROR, function (event, data) {
                         if (data.fatal) {
                             switch (data.type) {
                                 case Hls.ErrorTypes.NETWORK_ERROR:
-                                    console.log("Ağ hatası kurtarılıyor...");
+                                    console.log("Ağ hatası! Yayın tekrar zorlanıyor...");
                                     hls.startLoad();
                                     break;
                                 case Hls.ErrorTypes.MEDIA_ERROR:
-                                    console.log("Medya hatası kurtarılıyor...");
+                                    console.log("Medya hatası! Akış kurtarılıyor...");
                                     hls.recoverMediaError();
                                     break;
                                 default:
-                                    console.log("Hata kurtarılamadı, yeniden başlatılıyor...");
+                                    console.log("Kritik hata! Akış baştan yükleniyor...");
                                     hls.loadSource(url);
                                     break;
                             }
                         }
                     });
                 } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    // Safari ve iOS için native oynatım zorlaması
                     video.src = url;
                     video.load();
                     video.play().catch(e => console.log("Oynatma hatası:", e));
                 }
             } else {
-                // Standart MP4/MKV VOD Dosyaları İçin
                 video.src = url;
                 video.load();
                 video.play().catch(e => console.log("Oynatma hatası:", e));
@@ -752,9 +789,7 @@
         function forward() { video.currentTime += 10; showControlsTemporarily(); }
         function rewind() { video.currentTime -= 10; showControlsTemporarily(); }
 
-        // --- AKILLI DOKUNMA/TIKLAMA YÖNETİMİ ---
-        // İstediğin gibi: Videonun üzerine tıklandığında oynatma/sarma/duraklatma YAPMAZ.
-        // Sadece butonları ve alt paneli ekrana getirir / gizler.
+        // --- AKILLI DOKUNMA YÖNETİMİ ---
         videoContainer.addEventListener('click', function(e) {
             if (e.target === video || e.target === videoContainer) {
                 if (videoContainer.classList.contains('show-controls')) {
@@ -766,12 +801,11 @@
             }
         });
 
-        // Kontrolleri ekrana getiren ve 3 saniye sonra otomatik gizleyen fonksiyon
         function showControlsTemporarily() {
             videoContainer.classList.add('show-controls');
             if (controlsTimeout) clearTimeout(controlsTimeout);
             controlsTimeout = setTimeout(() => {
-                if (!video.paused) { // Video duraklatılmışsa kontroller ekranda kalır
+                if (!video.paused) { 
                     videoContainer.classList.remove('show-controls');
                 }
             }, 3000);
@@ -791,27 +825,47 @@
 
         // Geliştirilmiş Akıllı Yatay/Dikey Çevirme Fonksiyonu
         function toggleRotate() {
-            const isLandscape = videoContainer.classList.toggle('landscape-mode');
-            if (isLandscape) {
-                document.body.style.overflow = 'hidden';
-                if (videoContainer.requestFullscreen) {
-                    videoContainer.requestFullscreen().then(() => {
-                        if (screen.orientation && screen.orientation.lock) {
-                            screen.orientation.lock('landscape').catch(e => console.log(e));
-                        }
-                    });
-                }
+            const isLandscape = videoContainer.classList.contains('landscape-mode');
+            if (!isLandscape) {
+                enterLandscape();
             } else {
-                document.body.style.overflow = '';
-                if (document.fullscreenElement) {
-                    document.exitFullscreen();
-                }
-                if (screen.orientation && screen.orientation.unlock) {
-                    screen.orientation.unlock();
-                }
+                exitLandscape();
+            }
+        }
+
+        // Yatay Moda Giriş Sınıfı
+        function enterLandscape() {
+            videoContainer.classList.add('landscape-mode');
+            document.body.style.overflow = 'hidden';
+            if (videoContainer.requestFullscreen) {
+                videoContainer.requestFullscreen().then(() => {
+                    if (screen.orientation && screen.orientation.lock) {
+                        screen.orientation.lock('landscape').catch(e => console.log(e));
+                    }
+                });
             }
             showControlsTemporarily();
         }
+
+        // Yatay Moddan Çıkış (Geri oku ve çevir butonu tetikler)
+        function exitLandscape() {
+            videoContainer.classList.remove('landscape-mode');
+            document.body.style.overflow = '';
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            }
+            if (screen.orientation && screen.orientation.unlock) {
+                screen.orientation.unlock();
+            }
+            showControlsTemporarily();
+        }
+
+        // Tam ekran modundan çıkışı yakalayarak yatay mod stilini de senkronize temizleme
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && videoContainer.classList.contains('landscape-mode')) {
+                exitLandscape();
+            }
+        });
 
         async function togglePip() {
             try {
@@ -847,3 +901,4 @@
     </script>
 </body>
 </html>
+
