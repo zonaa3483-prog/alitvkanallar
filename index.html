@@ -672,16 +672,31 @@
             const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm');
             
             if (isHlsStream && Hls.isSupported()) {
+                // ULTRA HIZLI AÇILIŞ VE İLERİ/GERİ SARMADA BEKLEMEME YAPILANDIRMASI
                 hls = new Hls({
-                    maxBufferLength: 30,
-                    maxMaxBufferLength: 60,
                     enableWorker: true,
-                    lowLatencyMode: true
+                    lowLatencyMode: true,           // Gecikmeyi en aza indirir, canlı yayınları anında bağlar.
+                    maxBufferLength: 4,             // Gereksiz büyük arabellek indirmesini keser (Hızlı başlangıç sağlar).
+                    maxMaxBufferLength: 10,         // Maksimum önbellek sınırını düşük tutarak ram tüketimini azaltır.
+                    backBufferLength: 5,            // Geriye dönük önbelleği minimumda tutar.
+                    maxStarvationDelay: 1,          // Yayın donarsa hızlıca alternatif küçük paketlere yönlenir.
+                    maxLoadingDelay: 2,             // Yükleme süre sınırını optimize eder.
+                    appendErrorMaxRetry: 5,         // Hatalarda takılmadan hızlı yeniden deneme yapar.
+                    liveSyncDurationCount: 2,       // Canlı yayının güncel anına en yakın saniyeden başlatır.
+                    liveMaxLatencyDurationCount: 3.5,
+                    nudgeMaxRetries: 10,            // Oynatıcı takılmalarında videoyu hafifçe ileri dürterek akışı kurtarır.
+                    nudgeDuration: 0.1
                 });
+                
                 hls.loadSource(url);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, function() {
                     video.play().catch(e => console.log(e));
+                });
+                
+                // İleri/Geri sarma yapıldığında önbelleği temizleyip yeni konumu anında yüklemesi için optimizasyon tetikleyici
+                hls.on(Hls.Events.BUFFER_FLUSHING, function() {
+                    hls.startLoad();
                 });
             } else {
                 video.src = url;
@@ -704,7 +719,7 @@
                 const percentage = (video.currentTime / video.duration) * 100;
                 progressFill.style.width = `${percentage}%`;
             } else {
-                timeDisplay.innerText = "Yükleniyor...";
+                timeDisplay.innerText = "Canlı Yayın / Yükleniyor...";
                 progressFill.style.width = '0%';
             }
         });
