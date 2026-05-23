@@ -6,8 +6,8 @@
     <title>OTT Mobile M3U Player</title>
     <!-- FontAwesome İkonları -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- HLS.js Kütüphanesi (Canlı yayın ve dizilerin donmasız, ultra hızlı açılması için) -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- HLS.js Kütüphanesi (IPTV için Kararlı ve Donmasız Versiyon) -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.10/dist/hls.min.js"></script>
     <style>
         /* Varsayılan Tema: BEYAZ (Gündüz Modu) */
         :root {
@@ -90,11 +90,37 @@
             object-fit: contain;
         }
 
+        /* Medya Bilgi Başlığı (Kanal / Dizi İsmi Göstergesi) */
+        .media-title-overlay {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 70px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #ffffff;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            backdrop-filter: blur(5px);
+            z-index: 1015;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .video-container.show-controls .media-title-overlay {
+            opacity: 1;
+        }
+
         /* Yatay Mod Geri Çıkış Oku */
         .landscape-back-btn {
             position: absolute;
             top: 15px;
-            left: 15px;
+            right: 15px;
             background: rgba(0, 0, 0, 0.6);
             color: white;
             border: none;
@@ -426,6 +452,9 @@
 
     <!-- Oynatıcı Bölümü -->
     <div class="video-container" id="videoContainer">
+        <!-- Medya Bilgi Başlığı (Kanal / Dizi ve Bölüm Göstergesi) -->
+        <div class="media-title-overlay" id="mediaTitleOverlay">Oynatılan Yayın Seçilmedi</div>
+
         <!-- Yatay Mod Geri Dönüş Butonu -->
         <button class="landscape-back-btn" id="landscapeBackBtn" onclick="event.stopPropagation(); exitLandscape();" title="Geri Dön">
             <i class="fas fa-arrow-left"></i>
@@ -498,6 +527,7 @@
         let currentTheme = 'light'; // İlk açılış beyaz mod
         let hls = null;
         let controlsTimeout = null;
+        let isChangingPip = false; // PiP mod geçiş koruması
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -507,6 +537,7 @@
         const progressBar = document.getElementById('progressBar');
         const progressFill = document.getElementById('progressFill');
         const timeDisplay = document.getElementById('timeDisplay');
+        const mediaTitleOverlay = document.getElementById('mediaTitleOverlay');
 
         // --- M3U PARSER (FİLTRELİ VE IPTV UYUMLU) ---
         async function fetchAndParseM3U() {
@@ -545,7 +576,6 @@
                         const isKurtlarVadisi = currentItemInfo.title.toLowerCase().includes('kurtlar vadisi') || currentItemInfo.group.toLowerCase().includes('kurtlar vadisi');
                         
                         if (type === 'live' && isKurtlarVadisi) {
-                            // Canlı sekmesinden eliyoruz, hiçbir şey yapma.
                             currentItemInfo = null;
                             continue;
                         }
@@ -564,7 +594,6 @@
                     }
                 }
 
-                // Boş kalan kategorileri temizle
                 for (const t in PLAYLIST_DATA) {
                     for (const g in PLAYLIST_DATA[t]) {
                         if (PLAYLIST_DATA[t][g].length === 0) delete PLAYLIST_DATA[t][g];
@@ -631,7 +660,7 @@
                 items.forEach(item => {
                     const listItem = document.createElement('div');
                     listItem.className = 'stream-list-item';
-                    listItem.onclick = () => playMedia(item.url);
+                    listItem.onclick = () => playMedia(item.url, item.title);
                     
                     const imgHTML = item.logo ? `<img src="${item.logo}" onerror="this.style.display='none'">` : '';
                     const fallbackIcon = currentMainTab === 'live' ? 'fa-tv' : 'fa-film';
@@ -663,28 +692,36 @@
         }
 
         // --- ULTRA HIZLI VE GELİŞMİŞ IPTV OYNATMA MOTORU ---
-        function playMedia(url) {
+        function playMedia(url, title) {
             if (hls) {
                 hls.destroy();
             }
 
-            // HLS (.m3u8) veya TS/Canlı yayın akışları zorlaması
-            if (url.includes('.m3u8') || url.includes('.ts') || currentMainTab === 'live') {
+            // Medya Başlığını Güncelle
+            mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
+
+            // Canlı ve HLS akışlar için genişletilmiş kontrol
+            const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || currentMainTab === 'live';
+
+            if (isHlsStream) {
                 if (Hls.isSupported()) {
                     hls = new Hls({
-                        maxBufferLength: 60,                    // 1 dakikalık agresif video önbellekleme (Takılmayı tamamen engeller)
-                        maxMaxBufferLength: 90,
-                        liveSyncDurationCount: 2,               // Yayına en hızlı sürede bağlanma ve gecikmeyi önleme
-                        maxBufferHole: 0.5,                     // Boşlukları hızla atlar, donma hissettirmez
-                        enableWorker: true,                     // Arka plan işlemci gücü ile donmaları engeller
-                        lowLatencyMode: true,                   // Hızlı kanal geçiş protokolü
-                        abrEwmaDefaultEstimate: 5000000,        // İlk açılışta yüksek hız tahmini yaparak hızlı yükleme sağlar
+                        maxBufferLength: 30,
+                        maxMaxBufferLength: 60,
+                        liveSyncDurationCount: 3,
+                        maxBufferHole: 0.5,
+                        enableWorker: true,
+                        lowLatencyMode: true,
+                        abrEwmaDefaultEstimate: 5000000,
                         manifestLoadingMaxRetry: 15,
                         manifestLoadingRetryDelay: 500,
                         levelLoadingMaxRetry: 15,
                         levelLoadingRetryDelay: 500,
                         fragLoadingMaxRetry: 15,
-                        fragLoadingRetryDelay: 500
+                        fragLoadingRetryDelay: 500,
+                        // Canlı TV yayın uyumluluğu için eklenen özel parametreler
+                        stretchShortVideoTrack: true,
+                        autoStartLoad: true
                     });
                     hls.loadSource(url);
                     hls.attachMedia(video);
@@ -692,7 +729,6 @@
                         video.play().catch(e => console.log(e));
                     });
                     
-                    // Otomatik Hata Tamir Döngüsü
                     hls.on(Hls.Events.ERROR, function (event, data) {
                         if (data.fatal) {
                             switch (data.type) {
@@ -708,14 +744,17 @@
                             }
                         }
                     });
-                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    // Safari ve iOS için yerel hızlı oynatma
+                } else if (video.canPlayType('application/vnd.apple.mpegurl') || video.canPlayType('audio/mpegurl')) {
+                    video.src = url;
+                    video.load();
+                    video.play().catch(e => console.log(e));
+                } else {
+                    // Ham akışlar (Direct TS link) direkt yükleme alternatifi
                     video.src = url;
                     video.load();
                     video.play().catch(e => console.log(e));
                 }
             } else {
-                // Standart MP4/MKV VOD (Dizi) Dosyaları İçin Hızlı Yükleme
                 video.src = url;
                 video.load();
                 video.play().catch(e => console.log(e));
@@ -776,7 +815,7 @@
         function rewind() { video.currentTime -= 10; showControlsTemporarily(); }
 
         videoContainer.addEventListener('click', function(e) {
-            if (e.target === video || e.target === videoContainer) {
+            if (e.target === video || e.target === videoContainer || e.target === mediaTitleOverlay) {
                 if (videoContainer.classList.contains('show-controls')) {
                     videoContainer.classList.remove('show-controls');
                     if (controlsTimeout) clearTimeout(controlsTimeout);
@@ -790,7 +829,7 @@
             videoContainer.classList.add('show-controls');
             if (controlsTimeout) clearTimeout(controlsTimeout);
             controlsTimeout = setTimeout(() => {
-                if (!video.paused) videoContainer.classList.remove('show-controls');
+                if (!video.paused && !isChangingPip) videoContainer.classList.remove('show-controls');
             }, 3000);
         }
 
@@ -831,14 +870,36 @@
             if (!document.fullscreenElement && videoContainer.classList.contains('landscape-mode')) exitLandscape();
         });
 
+        // --- KESİNTİSİZ PICTURE-IN-PICTURE (PiP) MOTORU ---
         async function togglePip() {
             try {
-                if (video !== document.pictureInPictureElement) await video.requestPictureInPicture();
-                else await document.exitPictureInPicture();
+                isChangingPip = true;
+                if (video !== document.pictureInPictureElement) {
+                    await video.requestPictureInPicture();
+                } else {
+                    await document.exitPictureInPicture();
+                }
             } catch (error) {
                 alert("Cihazınız PiP özelliğini desteklemiyor.");
+            } finally {
+                isChangingPip = false;
+                // PiP geçişinde video durumunu koru ve oynatmaya devam et
+                if (!video.paused) {
+                    video.play().catch(e => console.log(e));
+                }
             }
         }
+
+        // PiP modundan çıkıldığında videonun durmasını engelleyen event listener'lar
+        video.addEventListener('leavepictureinpicture', () => {
+            setTimeout(() => {
+                if (video.paused) {
+                    video.play().catch(e => console.log(e));
+                    playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                    centerPlayBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                }
+            }, 100);
+        });
 
         // --- AKILLI TEMA DEĞİŞTİRİCİ ---
         function toggleTheme() {
