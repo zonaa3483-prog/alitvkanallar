@@ -268,7 +268,7 @@
             flex-direction: column;
             overflow-y: auto;
             padding: 15px;
-            padding-bottom: 60px; /* Alt bar için boşluk */
+            padding-bottom: 60px;
         }
 
         .section-title {
@@ -371,7 +371,6 @@
             border-bottom: none;
         }
 
-        /* Aktif Oynatılan Bölümün Kırmızı Tasarımı */
         .stream-list-item.playing-active {
             background: var(--accent-color) !important;
             color: #ffffff !important;
@@ -607,7 +606,7 @@
                 const items = PLAYLIST_DATA.series[catName];
                 
                 const accordionItem = document.createElement('div');
-                accordionItem.className = 'accordion-item'; // Sadece 'active' kaldırıldı, artık başlangıçta kapalı gelecek
+                accordionItem.className = 'accordion-item'; 
                 
                 const header = document.createElement('div');
                 header.className = 'accordion-header';
@@ -661,7 +660,6 @@
                 hls = null;
             }
 
-            // Aktif elemanların arka planını temizle ve tıklanana kırmızı aktiflik sınıfı ekle
             document.querySelectorAll('.stream-list-item').forEach(el => el.classList.remove('playing-active'));
             if(element) {
                 element.classList.add('playing-active');
@@ -672,20 +670,20 @@
             const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm');
             
             if (isHlsStream && Hls.isSupported()) {
-                // ULTRA HIZLI AÇILIŞ VE İLERİ/GERİ SARMADA BEKLEMEME YAPILANDIRMASI
                 hls = new Hls({
                     enableWorker: true,
-                    lowLatencyMode: true,           // Gecikmeyi en aza indirir, canlı yayınları anında bağlar.
-                    maxBufferLength: 4,             // Gereksiz büyük arabellek indirmesini keser (Hızlı başlangıç sağlar).
-                    maxMaxBufferLength: 10,         // Maksimum önbellek sınırını düşük tutarak ram tüketimini azaltır.
-                    backBufferLength: 5,            // Geriye dönük önbelleği minimumda tutar.
-                    maxStarvationDelay: 1,          // Yayın donarsa hızlıca alternatif küçük paketlere yönlenir.
-                    maxLoadingDelay: 2,             // Yükleme süre sınırını optimize eder.
-                    appendErrorMaxRetry: 5,         // Hatalarda takılmadan hızlı yeniden deneme yapar.
-                    liveSyncDurationCount: 2,       // Canlı yayının güncel anına en yakın saniyeden başlatır.
-                    liveMaxLatencyDurationCount: 3.5,
-                    nudgeMaxRetries: 10,            // Oynatıcı takılmalarında videoyu hafifçe ileri dürterek akışı kurtarır.
-                    nudgeDuration: 0.1
+                    lowLatencyMode: true,           
+                    maxBufferLength: 8,             
+                    maxMaxBufferLength: 20,         
+                    backBufferLength: 10,           
+                    maxStarvationDelay: 2,          
+                    maxLoadingDelay: 4,             
+                    appendErrorMaxRetry: 10,         
+                    liveSyncDurationCount: 2,       
+                    liveMaxLatencyDurationCount: 4,
+                    nudgeMaxRetries: 15,            
+                    nudgeDuration: 0.1,
+                    progressive: true
                 });
                 
                 hls.loadSource(url);
@@ -694,7 +692,6 @@
                     video.play().catch(e => console.log(e));
                 });
                 
-                // İleri/Geri sarma yapıldığında önbelleği temizleyip yeni konumu anında yüklemesi için optimizasyon tetikleyici
                 hls.on(Hls.Events.BUFFER_FLUSHING, function() {
                     hls.startLoad();
                 });
@@ -710,11 +707,16 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // --- SÜRE VE İLERLEME ÇUBUĞU ---
+        // --- %100 DAKİK SÜRE VE İLERLEME ÇUBUĞU MOTORU ---
         video.addEventListener('timeupdate', () => {
             if (video.duration && isFinite(video.duration) && video.duration > 0) {
-                const current = formatTime(video.currentTime);
-                const total = formatTime(video.duration);
+                // Tarayıcıdan gelen ham süre anlık matematiksel tabana çekilerek dakikleştirildi
+                const currentSecs = Math.floor(video.currentTime);
+                const totalSecs = Math.floor(video.duration);
+                
+                const current = formatTime(currentSecs, totalSecs);
+                const total = formatTime(totalSecs, totalSecs);
+                
                 timeDisplay.innerText = `${current} / ${total}`;
                 const percentage = (video.currentTime / video.duration) * 100;
                 progressFill.style.width = `${percentage}%`;
@@ -724,11 +726,27 @@
             }
         });
 
-        function formatTime(seconds) {
-            if (isNaN(seconds) || !isFinite(seconds)) return "00:00";
-            const m = Math.floor((seconds % 3600) / 60);
-            const s = Math.floor(seconds % 60);
-            return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+        // Milisaniyelik yuvarlamaları engelleyen tam dakik zaman formatlayıcı
+        function formatTime(totalSeconds, videoDuration) {
+            if (isNaN(totalSeconds) || !isFinite(totalSeconds) || totalSeconds < 0) totalSeconds = 0;
+            
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            
+            const totalHours = Math.floor(videoDuration / 3600);
+
+            const hDisplay = hours < 10 ? '0' + hours : hours;
+            const mDisplay = minutes < 10 ? '0' + minutes : minutes;
+            const sDisplay = seconds < 10 ? '0' + seconds : seconds;
+
+            // Dizi veya Film 1 saatten uzunsa -> Örn: 02:12:30 veya 01:05:45 tam saati gösterir
+            if (totalHours > 0) {
+                return `${hDisplay}:${mDisplay}:${sDisplay}`;
+            } else {
+                // Dizi veya Film 1 saatten kısaysa -> Örn: 45:15 veya 02:45 dakik formatı gösterir
+                return `${mDisplay}:${sDisplay}`;
+            }
         }
 
         function seekVideo(event) {
@@ -736,10 +754,10 @@
             const rect = progressBar.getBoundingClientRect();
             const clickX = event.clientX - rect.left;
             const seekTime = (clickX / rect.width) * video.duration;
-            video.currentTime = seekTime;
+            video.currentTime = Math.floor(seekTime); // Sarmada dakik noktaya kilitler
         }
 
-        // --- KONTROLLER ---
+        // --- KONTROLLER VE GELİŞTİRİLMİŞ OYNAT/DURAKLAT TIKLAMA SİSTEMİ ---
         function togglePlay() {
             if (video.paused) {
                 video.play().catch(e => console.log(e));
@@ -756,9 +774,13 @@
         function forward() { video.currentTime += 10; showControlsTemporarily(); }
         function rewind() { video.currentTime -= 10; showControlsTemporarily(); }
 
+        // Video gövdesine tıklandığında anında duraklatma / başlatma tetikleyicisi
         videoContainer.addEventListener('click', function(e) {
-            if (e.target === video || e.target === videoContainer || e.target === mediaTitleOverlay) {
+            const isClickOnControls = videoControls.contains(e.target) || e.target.closest('.center-btn') || e.target.closest('#landscapeBackBtn');
+            
+            if (!isClickOnControls) {
                 if (videoContainer.classList.contains('show-controls')) {
+                    togglePlay();
                     videoContainer.classList.remove('show-controls');
                     if (controlsTimeout) clearTimeout(controlsTimeout);
                 } else {
