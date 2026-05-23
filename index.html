@@ -6,26 +6,27 @@
     <title>OTT Mobile M3U Player</title>
     <!-- FontAwesome İkonları -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- HLS.js Kütüphanesi (AzTV, İctimai TV ve diğer canlı yayın akışlarının sorunsuz açılması için) -->
+    <!-- HLS.js Kütüphanesi (Canlı yayın ve dizilerin donmasız, ultra hızlı açılması için) -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
+        /* Varsayılan Tema: BEYAZ (Gündüz Modu) */
         :root {
-            --bg-color: #0f0f0f;
-            --card-bg: #1f1f1f;
-            --accent-color: #ff0055;
-            --text-color: #ffffff;
-            --text-dim: #aaaaaa;
-            --border-color: #2a2a2a;
-        }
-
-        /* Beyaz Tema Değişkenleri */
-        [data-theme="light"] {
             --bg-color: #f5f5f7;
             --card-bg: #ffffff;
             --accent-color: #ff0055;
             --text-color: #1d1d1f;
             --text-dim: #6e6e73;
             --border-color: #e5e5ea;
+        }
+
+        /* Siyah Tema Değişkenleri (Gece Modu) */
+        [data-theme="dark"] {
+            --bg-color: #0f0f0f;
+            --card-bg: #1f1f1f;
+            --accent-color: #ff0055;
+            --text-color: #ffffff;
+            --text-dim: #aaaaaa;
+            --border-color: #2a2a2a;
         }
 
         * {
@@ -60,7 +61,7 @@
             gap: 6px;
         }
 
-        /* --- VİDEO ALANI (YouTube Tarzı) --- */
+        /* --- VİDEO ALANI --- */
         .video-container {
             width: 100%;
             position: relative;
@@ -69,11 +70,10 @@
             position: sticky;
             top: 0;
             z-index: 1000;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             transition: all 0.3s;
         }
 
-        /* Gelişmiş Yatay Dönüş Simülasyon Sınıfı */
         .video-container.landscape-mode {
             position: fixed;
             top: 0;
@@ -82,7 +82,6 @@
             height: 100vh;
             aspect-ratio: auto;
             z-index: 9999;
-            transform: rotate(0deg);
         }
 
         video {
@@ -112,7 +111,6 @@
             transition: opacity 0.3s;
         }
 
-        /* Yatay modda ve kontroller aktifken oku göster */
         .video-container.landscape-mode .landscape-back-btn {
             display: flex;
         }
@@ -136,13 +134,11 @@
             z-index: 1005;
         }
 
-        /* Kontrollerin görünürlük durumları */
-        .video-container.show-controls .video-controls,
-        .video-controls.keep-visible {
+        .video-container.show-controls .video-controls {
             opacity: 1;
         }
 
-        /* YouTube Tarzı Zaman Çizgisi */
+        /* Zaman Çizgisi */
         .timeline-container {
             width: 100%;
             display: flex;
@@ -165,7 +161,6 @@
             width: 0%;
             background: var(--accent-color);
             border-radius: 3px;
-            position: relative;
         }
 
         .time-display {
@@ -237,7 +232,6 @@
             padding: 15px;
         }
 
-        /* Üst Menü Araçları */
         .top-bar-tools {
             display: flex;
             justify-content: space-between;
@@ -255,9 +249,11 @@
             font-weight: 600;
             font-size: 13px;
             transition: 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        /* Durum Mesajları */
         .status-msg {
             text-align: center;
             padding: 40px 20px;
@@ -272,7 +268,6 @@
             color: var(--accent-color);
         }
 
-        /* Üst Sekmeler */
         .main-tabs {
             display: flex;
             background: var(--card-bg);
@@ -280,6 +275,7 @@
             padding: 5px;
             flex: 1;
             margin-right: 10px;
+            border: 1px solid var(--border-color);
         }
 
         .tab-btn {
@@ -300,7 +296,7 @@
             color: white;
         }
 
-        /* --- AKORDİYON SİYAHI (KATEGORİ & LİSTE) --- */
+        /* --- AKORDİYON KATEGORİ VE LİSTE --- */
         .category-accordion {
             display: flex;
             flex-direction: column;
@@ -349,12 +345,7 @@
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease-out;
-            background: rgba(0, 0, 0, 0.02);
-            border-top: 0 solid var(--border-color);
-        }
-
-        [data-theme="dark"] .accordion-content {
-            background: rgba(255, 255, 255, 0.01);
+            background: rgba(0, 0, 0, 0.01);
         }
 
         .accordion-item.active .accordion-content {
@@ -363,7 +354,6 @@
             border-top: 1px solid var(--border-color);
         }
 
-        /* Dikey Liste Görünümü */
         .stream-list {
             display: flex;
             flex-direction: column;
@@ -389,7 +379,7 @@
         .stream-logo {
             width: 40px;
             height: 40px;
-            background: rgba(0,0,0,0.1);
+            background: rgba(0,0,0,0.05);
             border-radius: 6px;
             display: flex;
             align-items: center;
@@ -443,16 +433,15 @@
 
         <video id="mainPlayer" playsinline></video>
         
-        <!-- Orta Sarma Butonları -->
+        <!-- Orta Kontrol Butonları -->
         <div class="center-controls">
             <button class="center-btn" onclick="event.stopPropagation(); rewind();"><i class="fas fa-backward"></i></button>
             <button class="center-btn" id="centerPlayBtn" onclick="event.stopPropagation(); togglePlay();"><i class="fas fa-play"></i></button>
             <button class="center-btn" onclick="event.stopPropagation(); forward();"><i class="fas fa-forward"></i></button>
         </div>
 
-        <!-- Alt Kontrol Barı (YouTube Stili) -->
+        <!-- Alt Kontrol Barı -->
         <div class="video-controls" id="videoControls">
-            <!-- Zaman Çizgisi Sürgüsü -->
             <div class="timeline-container" onclick="event.stopPropagation();">
                 <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)">
                     <div class="video-progress-fill" id="progressFill"></div>
@@ -477,40 +466,36 @@
 
     <!-- İçerik Listesi Bölümü -->
     <div class="content-area">
-        <!-- Üst Kontrol Araçları (Sekme + Tema Değiştirici) -->
         <div class="top-bar-tools">
             <div class="main-tabs">
                 <button class="tab-btn active" id="tabLiveBtn" onclick="switchMainTab('live')">Canlı Kanallar</button>
                 <button class="tab-btn" id="tabSeriesBtn" onclick="switchMainTab('series')">Diziler</button>
             </div>
             <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn">
-                <i class="fas fa-sun"></i> Gündüz
+                <i class="fas fa-moon"></i> Gece
             </button>
         </div>
 
         <div id="statusLayout" class="status-msg">
             <i class="fas fa-spinner fa-spin"></i>
-            <span>M3U Oynatma Listesi Dahili Hafızadan Yükleniyor...</span>
+            <span>M3U Oynatma Listesi Yükleniyor...</span>
         </div>
 
         <div id="mainLayout" style="display: none;">
-            <!-- Akordiyon Kategori Listesi -->
             <div class="category-accordion" id="accordionContainer"></div>
         </div>
     </div>
 
     <script>
-        // Dahili Sistem M3U Linki
         const INTERNAL_M3U_URL = "https://raw.githubusercontent.com/zonaa3483-prog/eli-iptv-siyahi/refs/heads/main/alimtv.m3u"; 
 
-        // Global Veri Yapısı
         const PLAYLIST_DATA = {
             live: {},
             series: {}
         };
 
         let currentMainTab = 'live';
-        let currentTheme = 'dark';
+        let currentTheme = 'light'; // İlk açılış beyaz mod
         let hls = null;
         let controlsTimeout = null;
         
@@ -523,7 +508,7 @@
         const progressFill = document.getElementById('progressFill');
         const timeDisplay = document.getElementById('timeDisplay');
 
-        // --- M3U PARSER ---
+        // --- M3U PARSER (FİLTRELİ VE IPTV UYUMLU) ---
         async function fetchAndParseM3U() {
             try {
                 const response = await fetch(INTERNAL_M3U_URL);
@@ -550,9 +535,19 @@
                     } else if (line.startsWith('http') && currentItemInfo) {
                         const url = line;
                         
+                        // Akış türünü tespit etme
                         let type = 'live';
-                        if (url.includes('/series/') || url.endsWith('.mp4') || url.endsWith('.mkv') || url.includes('/vod/')) {
+                        if (url.includes('/series/') || url.endsWith('.mp4') || url.endsWith('.mkv') || url.includes('/vod/') || currentItemInfo.group.toLowerCase().includes('dizi') || currentItemInfo.group.toLowerCase().includes('series')) {
                             type = 'series';
+                        }
+
+                        // KRİTİK FİLTRE: Eğer akış Canlı Kanallardaysa ve adında Kurtlar Vadisi geçiyorsa LİSTEYE EKLEME
+                        const isKurtlarVadisi = currentItemInfo.title.toLowerCase().includes('kurtlar vadisi') || currentItemInfo.group.toLowerCase().includes('kurtlar vadisi');
+                        
+                        if (type === 'live' && isKurtlarVadisi) {
+                            // Canlı sekmesinden eliyoruz, hiçbir şey yapma.
+                            currentItemInfo = null;
+                            continue;
                         }
 
                         if (!PLAYLIST_DATA[type][currentItemInfo.group]) {
@@ -569,6 +564,13 @@
                     }
                 }
 
+                // Boş kalan kategorileri temizle
+                for (const t in PLAYLIST_DATA) {
+                    for (const g in PLAYLIST_DATA[t]) {
+                        if (PLAYLIST_DATA[t][g].length === 0) delete PLAYLIST_DATA[t][g];
+                    }
+                }
+
                 initUI();
 
             } catch (error) {
@@ -576,7 +578,6 @@
                     <i class="fas fa-exclamation-triangle"></i>
                     <span>Oynatma listesi yüklenemedi!<br><small>${error.message}</small></span>
                 `;
-                console.error("M3U Yükleme Hatası:", error);
             }
         }
 
@@ -585,23 +586,15 @@
                 document.getElementById('statusLayout').innerHTML = `<i class="fas fa-folder-open"></i><span>M3U içeriği boş veya ayrıştırılamadı.</span>`;
                 return;
             }
-
             document.getElementById('statusLayout').style.display = 'none';
             document.getElementById('mainLayout').style.display = 'block';
-
-            if (Object.keys(PLAYLIST_DATA.live).length > 0) {
-                switchMainTab('live');
-            } else {
-                switchMainTab('series');
-            }
+            switchMainTab('live');
         }
 
-        // --- AKORDİYON VE LİSTE SİYAHI OLUŞTURMA ---
         function switchMainTab(tab) {
             currentMainTab = tab;
             document.getElementById('tabLiveBtn').classList.toggle('active', tab === 'live');
             document.getElementById('tabSeriesBtn').classList.toggle('active', tab === 'series');
-            
             renderAccordion();
         }
 
@@ -616,7 +609,7 @@
                 return;
             }
 
-            categories.forEach((catName, index) => {
+            categories.forEach((catName) => {
                 const items = PLAYLIST_DATA[currentMainTab][catName];
                 
                 const accordionItem = document.createElement('div');
@@ -662,72 +655,70 @@
                 header.onclick = () => {
                     const isActive = accordionItem.classList.contains('active');
                     document.querySelectorAll('.accordion-item').forEach(item => item.classList.remove('active'));
-                    
-                    if (!isActive) {
-                        accordionItem.classList.add('active');
-                    }
+                    if (!isActive) accordionItem.classList.add('active');
                 };
                 
                 container.appendChild(accordionItem);
             });
         }
 
-        // Gelişmiş Canlı Yayın Oynatıcı Sistemi (Tüm canlı kanalları sonuna kadar açmaya zorlayan stabil mod)
+        // --- ULTRA HIZLI VE GELİŞMİŞ IPTV OYNATMA MOTORU ---
         function playMedia(url) {
             if (hls) {
                 hls.destroy();
             }
 
-            if (url.includes('.m3u8') || currentMainTab === 'live') {
+            // HLS (.m3u8) veya TS/Canlı yayın akışları zorlaması
+            if (url.includes('.m3u8') || url.includes('.ts') || currentMainTab === 'live') {
                 if (Hls.isSupported()) {
                     hls = new Hls({
-                        maxMaxBufferLength: 30,                 // Daha fazla video tamponlayarak kesilmeyi önler
-                        liveSyncDurationCount: 3,               // Canlı yayını en stabil noktadan senkronize eder
-                        enableWorker: true,                     // Performans işçilerini aktif tutar
-                        lowLatencyMode: false,                  // Donmasız yayın için gecikme toleransını esnetir
-                        backBufferLength: 60,
-                        // Akışı sonuna kadar zorlamak için bağlantı ve yükleme zaman aşımı esneklikleri:
-                        manifestLoadingMaxRetry: 10,
-                        manifestLoadingRetryDelay: 1000,
-                        levelLoadingMaxRetry: 10,
-                        levelLoadingRetryDelay: 1000,
-                        fragLoadingMaxRetry: 10,
-                        fragLoadingRetryDelay: 1000
+                        maxBufferLength: 60,                    // 1 dakikalık agresif video önbellekleme (Takılmayı tamamen engeller)
+                        maxMaxBufferLength: 90,
+                        liveSyncDurationCount: 2,               // Yayına en hızlı sürede bağlanma ve gecikmeyi önleme
+                        maxBufferHole: 0.5,                     // Boşlukları hızla atlar, donma hissettirmez
+                        enableWorker: true,                     // Arka plan işlemci gücü ile donmaları engeller
+                        lowLatencyMode: true,                   // Hızlı kanal geçiş protokolü
+                        abrEwmaDefaultEstimate: 5000000,        // İlk açılışta yüksek hız tahmini yaparak hızlı yükleme sağlar
+                        manifestLoadingMaxRetry: 15,
+                        manifestLoadingRetryDelay: 500,
+                        levelLoadingMaxRetry: 15,
+                        levelLoadingRetryDelay: 500,
+                        fragLoadingMaxRetry: 15,
+                        fragLoadingRetryDelay: 500
                     });
                     hls.loadSource(url);
                     hls.attachMedia(video);
                     hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                        video.play().catch(e => console.log("Oynatma hatası:", e));
+                        video.play().catch(e => console.log(e));
                     });
                     
-                    // Gelişmiş Hata Kurtarma Döngüsü
+                    // Otomatik Hata Tamir Döngüsü
                     hls.on(Hls.Events.ERROR, function (event, data) {
                         if (data.fatal) {
                             switch (data.type) {
                                 case Hls.ErrorTypes.NETWORK_ERROR:
-                                    console.log("Ağ hatası! Yayın tekrar zorlanıyor...");
                                     hls.startLoad();
                                     break;
                                 case Hls.ErrorTypes.MEDIA_ERROR:
-                                    console.log("Medya hatası! Akış kurtarılıyor...");
                                     hls.recoverMediaError();
                                     break;
                                 default:
-                                    console.log("Kritik hata! Akış baştan yükleniyor...");
                                     hls.loadSource(url);
                                     break;
                             }
                         }
                     });
                 } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Safari ve iOS için yerel hızlı oynatma
                     video.src = url;
                     video.load();
-                    video.play().catch(e => console.log("Oynatma hatası:", e));
+                    video.play().catch(e => console.log(e));
                 }
             } else {
+                // Standart MP4/MKV VOD (Dizi) Dosyaları İçin Hızlı Yükleme
                 video.src = url;
                 video.load();
-                video.play().catch(e => console.log("Oynatma hatası:", e));
+                video.play().catch(e => console.log(e));
             }
 
             playBtn.innerHTML = '<i class="fas fa-pause"></i>';
@@ -742,7 +733,6 @@
                 const current = formatTime(video.currentTime);
                 const total = formatTime(video.duration);
                 timeDisplay.innerText = `${current} / ${total}`;
-                
                 const percentage = (video.currentTime / video.duration) * 100;
                 progressFill.style.width = `${percentage}%`;
             } else {
@@ -756,10 +746,7 @@
             const h = Math.floor(seconds / 3600);
             const m = Math.floor((seconds % 3600) / 60);
             const s = Math.floor(seconds % 60);
-            
-            if (h > 0) {
-                return `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
-            }
+            if (h > 0) return `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
             return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
         }
 
@@ -767,12 +754,11 @@
             if (!video.duration || !isFinite(video.duration)) return;
             const rect = progressBar.getBoundingClientRect();
             const clickX = event.clientX - rect.left;
-            const width = rect.width;
-            const seekTime = (clickX / width) * video.duration;
+            const seekTime = (clickX / rect.width) * video.duration;
             video.currentTime = seekTime;
         }
 
-        // --- OYNATICI KONTROLLERİ ---
+        // --- KONTROLLER ---
         function togglePlay() {
             if (video.paused) {
                 video.play().catch(e => console.log(e));
@@ -789,7 +775,6 @@
         function forward() { video.currentTime += 10; showControlsTemporarily(); }
         function rewind() { video.currentTime -= 10; showControlsTemporarily(); }
 
-        // --- AKILLI DOKUNMA YÖNETİMİ ---
         videoContainer.addEventListener('click', function(e) {
             if (e.target === video || e.target === videoContainer) {
                 if (videoContainer.classList.contains('show-controls')) {
@@ -805,93 +790,69 @@
             videoContainer.classList.add('show-controls');
             if (controlsTimeout) clearTimeout(controlsTimeout);
             controlsTimeout = setTimeout(() => {
-                if (!video.paused) { 
-                    videoContainer.classList.remove('show-controls');
-                }
+                if (!video.paused) videoContainer.classList.remove('show-controls');
             }, 3000);
         }
 
         function toggleFullscreen() {
             if (!document.fullscreenElement) {
-                if (videoContainer.requestFullscreen) {
-                    videoContainer.requestFullscreen();
-                } else if (videoContainer.webkitRequestFullscreen) {
-                    videoContainer.webkitRequestFullscreen();
-                }
+                if (videoContainer.requestFullscreen) videoContainer.requestFullscreen();
+                else if (videoContainer.webkitRequestFullscreen) videoContainer.webkitRequestFullscreen();
             } else {
                 document.exitFullscreen();
             }
         }
 
-        // Geliştirilmiş Akıllı Yatay/Dikey Çevirme Fonksiyonu
         function toggleRotate() {
-            const isLandscape = videoContainer.classList.contains('landscape-mode');
-            if (!isLandscape) {
-                enterLandscape();
-            } else {
-                exitLandscape();
-            }
+            if (!videoContainer.classList.contains('landscape-mode')) enterLandscape();
+            else exitLandscape();
         }
 
-        // Yatay Moda Giriş Sınıfı
         function enterLandscape() {
             videoContainer.classList.add('landscape-mode');
             document.body.style.overflow = 'hidden';
             if (videoContainer.requestFullscreen) {
                 videoContainer.requestFullscreen().then(() => {
-                    if (screen.orientation && screen.orientation.lock) {
-                        screen.orientation.lock('landscape').catch(e => console.log(e));
-                    }
+                    if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(e => console.log(e));
                 });
             }
             showControlsTemporarily();
         }
 
-        // Yatay Moddan Çıkış (Geri oku ve çevir butonu tetikler)
         function exitLandscape() {
             videoContainer.classList.remove('landscape-mode');
             document.body.style.overflow = '';
-            if (document.fullscreenElement) {
-                document.exitFullscreen();
-            }
-            if (screen.orientation && screen.orientation.unlock) {
-                screen.orientation.unlock();
-            }
+            if (document.fullscreenElement) document.exitFullscreen();
+            if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
             showControlsTemporarily();
         }
 
-        // Tam ekran modundan çıkışı yakalayarak yatay mod stilini de senkronize temizleme
         document.addEventListener('fullscreenchange', () => {
-            if (!document.fullscreenElement && videoContainer.classList.contains('landscape-mode')) {
-                exitLandscape();
-            }
+            if (!document.fullscreenElement && videoContainer.classList.contains('landscape-mode')) exitLandscape();
         });
 
         async function togglePip() {
             try {
-                if (video !== document.pictureInPictureElement) {
-                    await video.requestPictureInPicture();
-                } else {
-                    await document.exitPictureInPicture();
-                }
+                if (video !== document.pictureInPictureElement) await video.requestPictureInPicture();
+                else await document.exitPictureInPicture();
             } catch (error) {
-                alert("Cihazınız PiP (Picture-in-Picture) özelliğini desteklemiyor.");
+                alert("Cihazınız PiP özelliğini desteklemiyor.");
             }
         }
 
-        // --- SİYAH / BEYAZ REJİM YÖNETİMİ ---
+        // --- AKILLI TEMA DEĞİŞTİRİCİ ---
         function toggleTheme() {
             const body = document.body;
             const btn = document.getElementById('themeBtn');
             
-            if (body.getAttribute('data-theme') === 'light') {
+            if (body.getAttribute('data-theme') === 'dark') {
                 body.removeAttribute('data-theme');
-                currentTheme = 'dark';
-                btn.innerHTML = '<i class="fas fa-sun"></i> Gündüz';
-            } else {
-                body.setAttribute('data-theme', 'light');
                 currentTheme = 'light';
                 btn.innerHTML = '<i class="fas fa-moon"></i> Gece';
+            } else {
+                body.setAttribute('data-theme', 'dark');
+                currentTheme = 'dark';
+                btn.innerHTML = '<i class="fas fa-sun"></i> Gündüz';
             }
         }
 
@@ -901,4 +862,3 @@
     </script>
 </body>
 </html>
-
