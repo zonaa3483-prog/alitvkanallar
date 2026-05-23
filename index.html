@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OTT Mobile M3U Player</title>
-    <!-- FontAwesome İkonları -->
+    <title>ƏLİ TV</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- HLS.js Kütüphanesi (IPTV için Kararlı ve Donmasız Versiyon) -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.10/dist/hls.min.js"></script>
     <style>
         /* Varsayılan Tema: BEYAZ (Gündüz Modu) */
@@ -47,15 +45,33 @@
             transition: background-color 0.3s, color 0.3s;
         }
 
-        /* --- ÜST CEO BAR --- */
-        .ceo-header {
+        /* --- ÜST BAR (BAŞLIK & TEMA) --- */
+        .top-header-bar {
             background: var(--card-bg);
             border-bottom: 1px solid var(--border-color);
-            padding: 8px 15px;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--accent-color);
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .app-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-color);
             letter-spacing: 0.5px;
+        }
+
+        .theme-toggle-btn {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 8px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: 0.3s;
             display: flex;
             align-items: center;
             gap: 6px;
@@ -90,7 +106,6 @@
             object-fit: contain;
         }
 
-        /* Medya Bilgi Başlığı (Kanal / Dizi İsmi Göstergesi) */
         .media-title-overlay {
             position: absolute;
             top: 15px;
@@ -116,7 +131,6 @@
             opacity: 1;
         }
 
-        /* Yatay Mod Geri Çıkış Oku */
         .landscape-back-btn {
             position: absolute;
             top: 15px;
@@ -145,7 +159,6 @@
             opacity: 1;
         }
 
-        /* Video Kontrolleri */
         .video-controls {
             position: absolute;
             bottom: 0;
@@ -164,7 +177,6 @@
             opacity: 1;
         }
 
-        /* Zaman Çizgisi */
         .timeline-container {
             width: 100%;
             display: flex;
@@ -256,25 +268,14 @@
             flex-direction: column;
             overflow-y: auto;
             padding: 15px;
+            padding-bottom: 60px; /* Alt bar için boşluk */
         }
 
-        .top-bar-tools {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .theme-toggle-btn {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            color: var(--text-color);
-            padding: 10px 15px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 13px;
-            transition: 0.3s;
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--accent-color);
             display: flex;
             align-items: center;
             gap: 6px;
@@ -292,34 +293,6 @@
             font-size: 30px;
             margin-bottom: 10px;
             color: var(--accent-color);
-        }
-
-        .main-tabs {
-            display: flex;
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 5px;
-            flex: 1;
-            margin-right: 10px;
-            border: 1px solid var(--border-color);
-        }
-
-        .tab-btn {
-            flex: 1;
-            background: none;
-            border: none;
-            color: var(--text-dim);
-            padding: 10px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 10px;
-            transition: 0.3s;
-        }
-
-        .tab-btn.active {
-            background: var(--accent-color);
-            color: white;
         }
 
         /* --- AKORDİYON KATEGORİ VE LİSTE --- */
@@ -375,7 +348,7 @@
         }
 
         .accordion-item.active .accordion-content {
-            max-height: 400px;
+            max-height: 500px;
             overflow-y: auto;
             border-top: 1px solid var(--border-color);
         }
@@ -391,15 +364,22 @@
             padding: 12px 15px;
             border-bottom: 1px solid var(--border-color);
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background 0.2s, color 0.2s;
         }
 
         .stream-list-item:last-child {
             border-bottom: none;
         }
 
-        .stream-list-item:active {
-            background: rgba(255, 0, 85, 0.05);
+        /* Aktif Oynatılan Bölümün Kırmızı Tasarımı */
+        .stream-list-item.playing-active {
+            background: var(--accent-color) !important;
+            color: #ffffff !important;
+        }
+
+        .stream-list-item.playing-active .stream-name,
+        .stream-list-item.playing-active i {
+            color: #ffffff !important;
         }
 
         .stream-logo {
@@ -441,35 +421,53 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+
+        /* --- ALT CEO BAR --- */
+        .ceo-footer {
+            background: var(--card-bg);
+            border-top: 1px solid var(--border-color);
+            padding: 12px 15px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-color);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
     </style>
 </head>
 <body>
 
-    <!-- Üst Yönetici Künyesi -->
-    <div class="ceo-header">
-        <i class="fas fa-user-shield"></i> CEO: Əli Məhərrəmov
+    <div class="top-header-bar">
+        <div class="app-title"><i class="fas fa-play-circle"></i> ƏLİ TV</div>
+        <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn">
+            <i class="fas fa-moon"></i> Gece
+        </button>
     </div>
 
-    <!-- Oynatıcı Bölümü -->
     <div class="video-container" id="videoContainer">
-        <!-- Medya Bilgi Başlığı (Kanal / Dizi ve Bölüm Göstergesi) -->
         <div class="media-title-overlay" id="mediaTitleOverlay">Oynatılan Yayın Seçilmedi</div>
 
-        <!-- Yatay Mod Geri Dönüş Butonu -->
         <button class="landscape-back-btn" id="landscapeBackBtn" onclick="event.stopPropagation(); exitLandscape();" title="Geri Dön">
             <i class="fas fa-arrow-left"></i>
         </button>
 
         <video id="mainPlayer" playsinline></video>
         
-        <!-- Orta Kontrol Butonları -->
         <div class="center-controls">
             <button class="center-btn" onclick="event.stopPropagation(); rewind();"><i class="fas fa-backward"></i></button>
             <button class="center-btn" id="centerPlayBtn" onclick="event.stopPropagation(); togglePlay();"><i class="fas fa-play"></i></button>
             <button class="center-btn" onclick="event.stopPropagation(); forward();"><i class="fas fa-forward"></i></button>
         </div>
 
-        <!-- Alt Kontrol Barı -->
         <div class="video-controls" id="videoControls">
             <div class="timeline-container" onclick="event.stopPropagation();">
                 <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)">
@@ -493,16 +491,9 @@
         </div>
     </div>
 
-    <!-- İçerik Listesi Bölümü -->
     <div class="content-area">
-        <div class="top-bar-tools">
-            <div class="main-tabs">
-                <button class="tab-btn active" id="tabLiveBtn" onclick="switchMainTab('live')">Canlı Kanallar</button>
-                <button class="tab-btn" id="tabSeriesBtn" onclick="switchMainTab('series')">Diziler</button>
-            </div>
-            <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn">
-                <i class="fas fa-moon"></i> Gece
-            </button>
+        <div class="section-title">
+            <i class="fas fa-film"></i> Diziler ve Listeler
         </div>
 
         <div id="statusLayout" class="status-msg">
@@ -515,19 +506,21 @@
         </div>
     </div>
 
+    <div class="ceo-footer">
+        <i class="fas fa-user-shield"></i> CEO: Əli Məhərrəmov
+    </div>
+
     <script>
         const INTERNAL_M3U_URL = "https://raw.githubusercontent.com/zonaa3483-prog/eli-iptv-siyahi/refs/heads/main/alimtv.m3u"; 
 
         const PLAYLIST_DATA = {
-            live: {},
             series: {}
         };
 
-        let currentMainTab = 'live';
-        let currentTheme = 'light'; // İlk açılış beyaz mod
+        let currentTheme = 'light'; 
         let hls = null;
         let controlsTimeout = null;
-        let isChangingPip = false; // PiP mod geçiş koruması
+        let isChangingPip = false; 
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -539,7 +532,7 @@
         const timeDisplay = document.getElementById('timeDisplay');
         const mediaTitleOverlay = document.getElementById('mediaTitleOverlay');
 
-        // --- M3U PARSER (FİLTRELİ VE IPTV UYUMLU) ---
+        // --- M3U PARSER ---
         async function fetchAndParseM3U() {
             try {
                 const response = await fetch(INTERNAL_M3U_URL);
@@ -557,34 +550,20 @@
                         const logoMatch = line.match(/tvg-logo="([^"]+)"/);
                         
                         const commaIndex = line.indexOf(',');
-                        const title = commaIndex !== -1 ? line.substring(commaIndex + 1).trim() : "Bilinmeyen Kanal";
+                        const title = commaIndex !== -1 ? line.substring(commaIndex + 1).trim() : "Bilinmeyen Başlık";
                         
-                        const group = groupMatch ? groupMatch[1] : "Diğerleri";
+                        const group = groupMatch ? groupMatch[1] : "Diğer Listeler";
                         const logo = logoMatch ? logoMatch[1] : "";
 
                         currentItemInfo = { title, logo, group };
                     } else if (line.startsWith('http') && currentItemInfo) {
                         const url = line;
-                        
-                        // Akış türünü tespit etme
-                        let type = 'live';
-                        if (url.includes('/series/') || url.endsWith('.mp4') || url.endsWith('.mkv') || url.includes('/vod/') || currentItemInfo.group.toLowerCase().includes('dizi') || currentItemInfo.group.toLowerCase().includes('series')) {
-                            type = 'series';
+
+                        if (!PLAYLIST_DATA.series[currentItemInfo.group]) {
+                            PLAYLIST_DATA.series[currentItemInfo.group] = [];
                         }
 
-                        // KRİTİK FİLTRE: Eğer akış Canlı Kanallardaysa ve adında Kurtlar Vadisi geçiyorsa LİSTEYE EKLEME
-                        const isKurtlarVadisi = currentItemInfo.title.toLowerCase().includes('kurtlar vadisi') || currentItemInfo.group.toLowerCase().includes('kurtlar vadisi');
-                        
-                        if (type === 'live' && isKurtlarVadisi) {
-                            currentItemInfo = null;
-                            continue;
-                        }
-
-                        if (!PLAYLIST_DATA[type][currentItemInfo.group]) {
-                            PLAYLIST_DATA[type][currentItemInfo.group] = [];
-                        }
-
-                        PLAYLIST_DATA[type][currentItemInfo.group].push({
+                        PLAYLIST_DATA.series[currentItemInfo.group].push({
                             title: currentItemInfo.title,
                             logo: currentItemInfo.logo,
                             url: url
@@ -594,10 +573,8 @@
                     }
                 }
 
-                for (const t in PLAYLIST_DATA) {
-                    for (const g in PLAYLIST_DATA[t]) {
-                        if (PLAYLIST_DATA[t][g].length === 0) delete PLAYLIST_DATA[t][g];
-                    }
+                for (const g in PLAYLIST_DATA.series) {
+                    if (PLAYLIST_DATA.series[g].length === 0) delete PLAYLIST_DATA.series[g];
                 }
 
                 initUI();
@@ -611,19 +588,12 @@
         }
 
         function initUI() {
-            if (Object.keys(PLAYLIST_DATA.live).length === 0 && Object.keys(PLAYLIST_DATA.series).length === 0) {
+            if (Object.keys(PLAYLIST_DATA.series).length === 0) {
                 document.getElementById('statusLayout').innerHTML = `<i class="fas fa-folder-open"></i><span>M3U içeriği boş veya ayrıştırılamadı.</span>`;
                 return;
             }
             document.getElementById('statusLayout').style.display = 'none';
             document.getElementById('mainLayout').style.display = 'block';
-            switchMainTab('live');
-        }
-
-        function switchMainTab(tab) {
-            currentMainTab = tab;
-            document.getElementById('tabLiveBtn').classList.toggle('active', tab === 'live');
-            document.getElementById('tabSeriesBtn').classList.toggle('active', tab === 'series');
             renderAccordion();
         }
 
@@ -631,18 +601,13 @@
             const container = document.getElementById('accordionContainer');
             container.innerHTML = '';
             
-            const categories = Object.keys(PLAYLIST_DATA[currentMainTab]);
-
-            if (categories.length === 0) {
-                container.innerHTML = '<div class="status-msg">Bu kategoride içerik bulunamadı.</div>';
-                return;
-            }
+            const categories = Object.keys(PLAYLIST_DATA.series);
 
             categories.forEach((catName) => {
-                const items = PLAYLIST_DATA[currentMainTab][catName];
+                const items = PLAYLIST_DATA.series[catName];
                 
                 const accordionItem = document.createElement('div');
-                accordionItem.className = 'accordion-item';
+                accordionItem.className = 'accordion-item active'; // Tüm listeler başlangıçta açık gelir
                 
                 const header = document.createElement('div');
                 header.className = 'accordion-header';
@@ -660,15 +625,15 @@
                 items.forEach(item => {
                     const listItem = document.createElement('div');
                     listItem.className = 'stream-list-item';
-                    listItem.onclick = () => playMedia(item.url, item.title);
+                    listItem.setAttribute('data-url', item.url);
+                    listItem.onclick = () => playMedia(item.url, item.title, listItem);
                     
                     const imgHTML = item.logo ? `<img src="${item.logo}" onerror="this.style.display='none'">` : '';
-                    const fallbackIcon = currentMainTab === 'live' ? 'fa-tv' : 'fa-film';
                     
                     listItem.innerHTML = `
                         <div class="stream-logo">
                             ${imgHTML}
-                            <i class="fas ${fallbackIcon}"></i>
+                            <i class="fas fa-film"></i>
                         </div>
                         <div class="stream-details">
                             <div class="stream-name">${item.title}</div>
@@ -682,101 +647,46 @@
                 accordionItem.appendChild(content);
                 
                 header.onclick = () => {
-                    const isActive = accordionItem.classList.contains('active');
-                    document.querySelectorAll('.accordion-item').forEach(item => item.classList.remove('active'));
-                    if (!isActive) accordionItem.classList.add('active');
+                    accordionItem.classList.toggle('active');
                 };
                 
                 container.appendChild(accordionItem);
             });
         }
 
-        // --- TELEVİZİO VE OTT-PLAY KALİTESİNDE ULTRA IPTV OYNATMA MOTORU ---
-        function playMedia(url, title) {
-            // OTT-PLAY SİSTEMİ ÖZELLİĞİ: Kanal geçişinde oynatıcıyı, kaynak belleğini ve DOM elementini tamamen sıfırla
-            video.pause();
-            video.removeAttribute('src'); 
-            video.load();
-
+        // --- IPTV OYNATMA MOTORU VE AKTİF SEÇİM IŞIĞI ---
+        function playMedia(url, title, element) {
             if (hls) {
                 hls.destroy();
                 hls = null;
             }
 
+            // Aktif elemanların arka planını temizle ve tıklanana kırmızı aktiflik sınıfı ekle
+            document.querySelectorAll('.stream-list-item').forEach(el => el.classList.remove('playing-active'));
+            if(element) {
+                element.classList.add('playing-active');
+            }
+
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || currentMainTab === 'live';
+            const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm');
             
             if (isHlsStream && Hls.isSupported()) {
-                // OTT-Play / Televizio standardında, ses kodek senkronizasyonlu kararlı Hls konfigürasyonu
                 hls = new Hls({
                     maxBufferLength: 30,
                     maxMaxBufferLength: 60,
-                    liveSyncDurationCount: 3,
-                    maxBufferHole: 0.5,
                     enableWorker: true,
-                    lowLatencyMode: false,
-                    autoStartLoad: true,
-                    // OTT-Play Özelliği: Ses donmalarını ve kanal geçişlerindeki ses kaymalarını engelleme ayarları
-                    enableSoftwareAES: true,
-                    overrideAudioAAC: true, 
-                    defaultAudioCodec: "mp4a.40.2", // Yaygın canlı yayın ses codec bileşeni zorlaması
-                    xhrSetup: function (xhr, urlInfo) {
-                        xhr.withCredentials = false;
-                    }
+                    lowLatencyMode: true
                 });
-
                 hls.loadSource(url);
                 hls.attachMedia(video);
-                
                 hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    // OTT-PLAY SES ÇÖZÜMÜ: Ses engelini aşmak için önce sesi açık başlatmayı dene, hata verirse geçici sessize alıp hemen aç
-                    video.muted = false;
-                    const playPromise = video.play();
-                    
-                    if (playPromise !== undefined) {
-                        playPromise.catch(error => {
-                            console.log("Autoplay koruması tetiklendi, OTT-Play yöntemi ile ses aktifleştiriliyor...");
-                            video.muted = true;
-                            video.play().then(() => {
-                                setTimeout(() => {
-                                    video.muted = false; // Oynatım başladıktan hemen sonra sesi devreye sokar
-                                }, 150);
-                            });
-                        });
-                    }
-                });
-                
-                hls.on(Hls.Events.ERROR, function (event, data) {
-                    if (data.fatal) {
-                        switch (data.type) {
-                            case Hls.ErrorTypes.NETWORK_ERROR:
-                                hls.startLoad();
-                                break;
-                            case Hls.ErrorTypes.MEDIA_ERROR:
-                                // OTT-PLAY ÖZELLİĞİ: Canlı kanallarda ses/video uyumsuzluğu çökerse otomatik olarak kurtar ve yeniden senkronize et
-                                hls.recoverMediaError();
-                                break;
-                            default:
-                                video.src = url;
-                                video.load();
-                                video.muted = false;
-                                video.play().catch(e => {
-                                    video.muted = true;
-                                    video.play();
-                                });
-                                break;
-                        }
-                    }
+                    video.play().catch(e => console.log(e));
                 });
             } else {
                 video.src = url;
                 video.load();
-                video.muted = false;
-                video.play().catch(e => {
-                    video.muted = true;
-                    video.play().then(() => { video.muted = false; });
-                });
+                video.play().catch(e => console.log(e));
             }
 
             playBtn.innerHTML = '<i class="fas fa-pause"></i>';
@@ -785,26 +695,24 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // --- SÜRE VE İLERLEME ÇUBUĞU (CANLI YAYIN KİLİTLENME KORUMALI) ---
+        // --- SÜRE VE İLERLEME ÇUBUĞU ---
         video.addEventListener('timeupdate', () => {
-            if (video.duration && isFinite(video.duration) && video.duration > 0 && currentMainTab !== 'live') {
+            if (video.duration && isFinite(video.duration) && video.duration > 0) {
                 const current = formatTime(video.currentTime);
                 const total = formatTime(video.duration);
                 timeDisplay.innerText = `${current} / ${total}`;
                 const percentage = (video.currentTime / video.duration) * 100;
                 progressFill.style.width = `${percentage}%`;
             } else {
-                timeDisplay.innerText = "Canlı Yayın";
-                progressFill.style.width = '100%';
+                timeDisplay.innerText = "Yükleniyor...";
+                progressFill.style.width = '0%';
             }
         });
 
         function formatTime(seconds) {
             if (isNaN(seconds) || !isFinite(seconds)) return "00:00";
-            const h = Math.floor(seconds / 3600);
             const m = Math.floor((seconds % 3600) / 60);
             const s = Math.floor(seconds % 60);
-            if (h > 0) return `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
             return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
         }
 
@@ -889,7 +797,6 @@
             if (!document.fullscreenElement && videoContainer.classList.contains('landscape-mode')) exitLandscape();
         });
 
-        // --- KESİNTİSİZ PICTURE-IN-PICTURE (PiP) MOTORU ---
         async function togglePip() {
             try {
                 isChangingPip = true;
@@ -918,7 +825,7 @@
             }, 100);
         });
 
-        // --- AKILLI TEMA DEĞİŞTİRİCİ ---
+        // --- TEMA DEĞİŞTİRİCİ ---
         function toggleTheme() {
             const body = document.body;
             const btn = document.getElementById('themeBtn');
