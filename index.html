@@ -821,7 +821,8 @@
 
             // Kategori adına göre veya url yapısına göre canlı kontrolü (Müzik ve Dizi hariç her şey Canlı sayılır)
             const lowerCat = categoryName ? categoryName.toLowerCase() : "";
-            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerCat.includes("vod") || url.includes(".mp4") || url.includes(".mkv")) {
+            const lowerUrl = url.toLowerCase();
+            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerCat.includes("vod") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv") || lowerUrl.includes("movie")) {
                 isLiveStream = false;
             } else {
                 isLiveStream = true; 
@@ -837,26 +838,28 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || url.includes('atv') || url.includes('aztv');
+            const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || url.includes('atv') || url.includes('aztv') || url.includes('ictimai');
             
             if (isHlsStream && Hls.isSupported()) {
-                // OTTPlay mantığı: Tokenli, yönlendirmeli ve katı CORS kuralları olan kanallar (AzTV, İctimai vb.) için gelişmiş konfigürasyon
+                // OTTPlay Gelişmiş Motoru: AzTV, İctimai TV ve token korumalı yapılar için tam stabilizasyon konfigürasyonu
                 hls = new Hls({
                     enableWorker: true,
                     lowLatencyMode: true,           
-                    maxBufferLength: 15,             
-                    maxMaxBufferLength: 35,         
-                    backBufferLength: 10,           
-                    maxStarvationDelay: 4,          
-                    maxLoadingDelay: 6,             
-                    appendErrorMaxRetry: 20,         
+                    maxBufferLength: 30,             
+                    maxMaxBufferLength: 60,         
+                    backBufferLength: 15,           
+                    maxStarvationDelay: 8,          
+                    maxLoadingDelay: 10,             
+                    appendErrorMaxRetry: 30,         
                     liveSyncDurationCount: 3,       
-                    liveMaxLatencyDurationCount: 6,
-                    nudgeMaxRetries: 25,            
-                    nudgeDuration: 0.2,
+                    liveMaxLatencyDurationCount: 10,
+                    nudgeMaxRetries: 30,            
+                    nudgeDuration: 0.1,
                     progressive: true,
+                    stretchShortVideoTrack: true,
+                    autoStartLoad: true,
                     xhrSetup: function (xhr, url) {
-                        xhr.withCredentials = false; // CORS aşımı ve OTT stabilizasyonu için
+                        xhr.withCredentials = false; // CORS blokajlarını engellemek ve çerez çakışmalarını aşmak için
                     }
                 });
                 
@@ -868,18 +871,27 @@
                     requestWakeLock();
                 });
                 
-                // OTTPlay tarzı hata kurtarma mekanizması (Kanal takılırsa otomatik yeniler)
+                // OTTPlay Tarzı Akıllı Hata Kurtarma ve Yeniden Bağlanma Yapısı (Kanal donmalarını önler)
                 hls.on(Hls.Events.ERROR, function (event, data) {
                     if (data.fatal) {
                         switch (data.type) {
                             case Hls.ErrorTypes.NETWORK_ERROR:
+                                console.log("Ağ hatası algılandı, parça yeniden yükleniyor...");
                                 hls.startLoad();
                                 break;
                             case Hls.ErrorTypes.MEDIA_ERROR:
+                                console.log("Medya uyum hatası, kurtarma deneniyor...");
                                 hls.recoverMediaError();
                                 break;
                             default:
-                                hls.destroy();
+                                console.log("Kritik hata! Yayın sıfırlanıyor...");
+                                // Çökme durumunda yayını tamamen kaybetmemek için sessizce motoru yeniden başlatır
+                                setTimeout(() => {
+                                    if(hls) {
+                                        hls.loadSource(url);
+                                        hls.startLoad();
+                                    }
+                                }, 1000);
                                 break;
                         }
                     }
@@ -889,6 +901,7 @@
                     hls.startLoad();
                 });
             } else {
+                // HLS desteklemeyen saf MP4/VOD linkleri veya yerel tarayıcı oynatımı için
                 video.src = url;
                 video.load();
                 video.play().catch(e => console.log(e));
