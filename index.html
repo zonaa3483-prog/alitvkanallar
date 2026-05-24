@@ -264,30 +264,8 @@
         .volume-container {
             display: flex;
             align-items: center;
-            gap: 8px;
             color: white;
             margin-left: 5px;
-        }
-
-        .volume-slider {
-            width: 70px;
-            height: 4px;
-            -webkit-appearance: none;
-            appearance: none;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 2px;
-            outline: none;
-            cursor: pointer;
-        }
-
-        .volume-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--accent-color);
-            cursor: pointer;
         }
 
         .control-btn {
@@ -620,13 +598,12 @@
                         <button class="control-btn" onclick="toggleMute()" id="muteBtn" style="padding: 5px 2px; font-size: 16px;">
                             <i class="fas fa-volume-up"></i>
                         </button>
-                        <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.05" value="1" oninput="setVolume(this.value)">
                     </div>
                 </div>
                 <div class="control-group">
                     <button class="control-btn" onclick="toggleRotate()" id="rotateBtn" title="Ekranı Çevir"><i class="fas fa-sync-alt"></i> Çevir</button>
                     <button class="control-btn" onclick="togglePip()" id="pipBtn"><i class="fas fa-compress"></i> PiP</button>
-                    <button class="control-btn" onclick="toggleFullscreen()"><i class="fas fa-expand"></i></button>
+                    <button class="control-btn" onclick="toggleFullscreen()"><i class="fas fa-expand"></i> Tam Ekran</button>
                 </div>
             </div>
         </div>
@@ -670,7 +647,6 @@
         let isChangingPip = false; 
         let wakeLock = null; 
         let isLiveStream = false;
-        let previousVolume = 1;
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -685,7 +661,6 @@
         const skipAlert = document.getElementById('skipAlert');
         const timelineContainer = document.getElementById('timelineContainer');
         const muteBtn = document.getElementById('muteBtn');
-        const volumeSlider = document.getElementById('volumeSlider');
 
         // --- M3U PARSER ---
         async function fetchAndParseM3U() {
@@ -752,7 +727,6 @@
             document.getElementById('searchBoxContainer').style.display = 'block';
             renderAccordion();
             
-            // CEO dönüşünde durumu geri yükleme motoru
             restoreAppState();
         }
 
@@ -860,34 +834,15 @@
             }
         }
 
-        // --- SES AYARLARI ---
-        function setVolume(value) {
-            video.volume = value;
-            if (value == 0) {
-                muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
-                video.muted = true;
-            } else {
-                video.muted = false;
-                if (value < 0.4) {
-                    muteBtn.innerHTML = '<i class="fas fa-volume-down"></i>';
-                } else {
-                    muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
-                }
-                previousVolume = value;
-            }
-        }
-
+        // --- TIKLA AÇ / TIKLA KAPAT SES SİSTEMİ ---
         function toggleMute() {
             if (video.muted) {
                 video.muted = false;
-                video.volume = previousVolume;
-                volumeSlider.value = previousVolume;
-                setVolume(previousVolume);
+                video.volume = 1;
+                muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
             } else {
-                previousVolume = video.volume > 0 ? video.volume : 1;
                 video.muted = true;
                 video.volume = 0;
-                volumeSlider.value = 0;
                 muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
             }
         }
@@ -912,7 +867,6 @@
             try {
                 const state = JSON.parse(saved);
                 if (state.url) {
-                    // Kategoriyi aktif et
                     const accItems = document.querySelectorAll('.accordion-item');
                     accItems.forEach(item => {
                         if (item.getAttribute('data-catname') === state.category) {
@@ -926,7 +880,6 @@
                         }
                     });
                     
-                    // Medyayı başlat ve süreyi eşitle
                     playMedia(state.url, state.title, null, state.category);
                     if (!state.isLive) {
                         video.addEventListener('loadedmetadata', function onTimeInit() {
@@ -944,9 +897,8 @@
             localStorage.removeItem('elitv_state'); 
         }
 
-        // --- IPTV OYNATMA MOTORU VE Gelişmiş Token/Geçiş Altyapısı ---
+        // --- IPTV OYNATMA MOTORU ---
         function playMedia(url, title, element, categoryName) {
-            // Kanal geçişlerinde eski görüntünün donup kalmasını engellemek için ekranı temizle
             video.pause();
             video.src = "";
             video.removeAttribute("src");
@@ -999,15 +951,6 @@
                     xhrSetup: function (xhr, xhrUrl) {
                         xhr.withCredentials = true;  
                         xhr.setRequestHeader('Accept', '*/*');
-                        
-                        // Açılmayan veya korumalı kanallar için token geçiş / kimlik doğrulama simülasyonu
-                        if (xhrUrl.includes('aztv') || xhrUrl.includes('ictimai') || xhrUrl.includes('idman') || xhrUrl.includes('token') || xhrUrl.includes('key') || xhrUrl.includes('premium')) {
-                            xhr.onreadystatechange = function () {
-                                if (xhr.readyState === 1) {
-                                    // WebView uyumluluk köprüleme başlıkları
-                                }
-                            };
-                        }
                     }
                 });
                 
@@ -1248,12 +1191,12 @@
             if (!document.fullscreenElement && videoContainer.classList.contains('landscape-mode')) exitLandscape();
         });
 
-        // --- YOUTUBE STİLİ PICTURE-IN-PICTURE (PiP) MOTORU ---
+        // --- YOUTUBE STİLİ PICTURE-IN-PICTURE (PiP) MOTORU (WebView & Mobil Uyumlu) ---
         async function togglePip() {
             try {
                 isChangingPip = true;
                 
-                // YouTube tarzı PiP için önce yerel modern API kontrol edilir (WebView kısıtlamasız çalışması için)
+                // 1. Adım: Modern tarayıcılar için standart PiP kontrolü
                 if (document.pictureInPictureEnabled && video.requestPictureInPicture) {
                     if (video !== document.pictureInPictureElement) {
                         await video.requestPictureInPicture();
@@ -1261,33 +1204,24 @@
                         await document.exitPictureInPicture();
                     }
                 } 
-                // Appilix ve diğer mobil paketleyicilerde arkaplan köprüsünü aktif tutarak gerçek PiP tetikler
+                // 2. Adım: iOS WebView ve Appilix tarzı altyapılarda tam ekrana zorlamadan arka planda oynatma modunu tetikleme
                 else if (video.webkitSupportsPresentationMode && typeof video.webkitSetPresentationMode === "function") {
                     const currentMode = video.webkitPresentationMode;
                     if (currentMode === "picture-in-picture") {
                         video.webkitSetPresentationMode("inline");
                     } else {
-                        // Tam ekrana zorlamayı devre dışı bırakıp inline PiP penceresini tetikler
+                        // Tam ekran (fullscreen) yerine doğrudan pencere moduna geçiş komutu
                         video.webkitSetPresentationMode("picture-in-picture");
                     }
                 } 
                 else {
-                    // Eğer platform donanımsal olarak PiP desteklemiyorsa sistemi inline tam ekrana paslar
-                    if (video.requestFullscreen) {
-                        video.requestFullscreen();
-                    } else if (video.webkitEnterFullscreen) {
-                        video.webkitEnterFullscreen();
-                    } else {
-                        alert("Cihazınızın WebView altyapısı bu özelliği desteklememektedir.");
-                    }
+                    alert("Cihazınızın WebView altyapısı arka planda küçük pencere (PiP) özelliğini desteklememektedir.");
                 }
             } catch (error) {
                 console.log("PiP Hatası: ", error);
-                if (video.paused === false) {
-                    video.play().catch(e => console.log(e));
-                }
             } finally {
                 isChangingPip = false;
+                // WebView geçişleri esnasında videonun pause durumuna düşmesini engelleme garantisi
                 if (!video.paused) {
                     video.play().catch(e => console.log(e));
                 }
