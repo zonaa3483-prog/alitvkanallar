@@ -300,6 +300,45 @@
             justify-content: center;
         }
 
+        /* Canlı Yayın Canlı Yazısı Rozeti */
+        .live-badge-display {
+            display: none;
+            color: #ff0055;
+            font-weight: 700;
+            font-size: 14px;
+            align-items: center;
+            gap: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+        
+        .live-badge-display i {
+            font-size: 10px;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        /* Canlı modundayken bazı kontrolleri gizle */
+        .video-container.is-live-stream .timeline-container,
+        .video-container.is-live-stream .center-btn:nth-child(1),
+        .video-container.is-live-stream .center-btn:nth-child(3),
+        .video-container.is-live-stream .control-btn[onclick="rewind()"],
+        .video-container.is-live-stream .control-btn[onclick="forward()"] {
+            display: none !important;
+        }
+
+        .video-container.is-live-stream .live-badge-display {
+            display: flex;
+        }
+
         /* --- ANA İÇERİK ALANI --- */
         .content-area {
             flex: 1;
@@ -566,6 +605,7 @@
                     <button class="control-btn" onclick="togglePlay()" id="playBtn"><i class="fas fa-pause"></i></button>
                     <button class="control-btn" onclick="rewind()"><i class="fas fa-undo"></i></button>
                     <button class="control-btn" onclick="forward()"><i class="fas fa-redo"></i></button>
+                    <div class="live-badge-display" id="liveBadge"><i class="fas fa-circle"></i> Canlı</div>
                 </div>
                 <div class="control-group">
                     <button class="control-btn" onclick="toggleRotate()" id="rotateBtn" title="Ekranı Çevir"><i class="fas fa-sync-alt"></i> Çevir</button>
@@ -613,6 +653,7 @@
         let controlsTimeout = null;
         let isChangingPip = false; 
         let wakeLock = null; // Ekranın sönmesini önleme kilidi
+        let isLiveMode = false; // Canlı yayın takibi için yeni bayrak
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -811,8 +852,19 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm');
+            // Canlı kanal kontrolü (AzTV, İctimai veya m3u8/ts uzantıları)
+            const lowerTitle = (title || "").toLowerCase();
+            const isLiveTitle = lowerTitle.includes("aztv") || lowerTitle.includes("ictimai") || lowerTitle.includes("İctimai");
+            const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || isLiveTitle;
             
+            if (isHlsStream) {
+                isLiveMode = true;
+                videoContainer.classList.add('is-live-stream');
+            } else {
+                isLiveMode = false;
+                videoContainer.classList.remove('is-live-stream');
+            }
+
             if (isHlsStream && Hls.isSupported()) {
                 hls = new Hls({
                     enableWorker: true,
@@ -855,7 +907,14 @@
 
         // --- %100 DAKİK SÜRE VE İLERLEME ÇUBUĞU MOTORU ---
         video.addEventListener('timeupdate', () => {
-            if (video.duration && isFinite(video.duration) && video.duration > 0) {
+            // Video süresi Infinity veya canlı yayın modu aktifse doğrudan canlı göster
+            if (isLiveMode || !video.duration || !isFinite(video.duration) || video.duration <= 0) {
+                if(!videoContainer.classList.contains('is-live-stream')) {
+                    videoContainer.classList.add('is-live-stream');
+                }
+                timeDisplay.innerText = "Canlı Yayın";
+                progressFill.style.width = '0%';
+            } else {
                 const currentSecs = Math.floor(video.currentTime);
                 const totalSecs = Math.floor(video.duration);
                 
@@ -865,9 +924,6 @@
                 timeDisplay.innerText = `${current} / ${total}`;
                 const percentage = (video.currentTime / video.duration) * 100;
                 progressFill.style.width = `${percentage}%`;
-            } else {
-                timeDisplay.innerText = "Canlı Yayın / Yükleniyor...";
-                progressFill.style.width = '0%';
             }
         });
 
@@ -894,7 +950,7 @@
 
         // Xette (İlerleme çubuğu) üzerinde gezindikde saniyeleri gösteren fonksiyon
         function showTooltip(event) {
-            if (!video.duration || !isFinite(video.duration)) return;
+            if (isLiveMode || !video.duration || !isFinite(video.duration)) return;
             const rect = progressBar.getBoundingClientRect();
             let clientX = event.clientX;
             
@@ -917,7 +973,7 @@
         }
 
         function seekVideo(event) {
-            if (!video.duration || !isFinite(video.duration)) return;
+            if (isLiveMode || !video.duration || !isFinite(video.duration)) return;
             const rect = progressBar.getBoundingClientRect();
             const clickX = event.clientX - rect.left;
             const seekTime = (clickX / rect.width) * video.duration;
@@ -942,6 +998,7 @@
 
         // İleri - Geri sarma uyarı yazısı tetikleyicisi
         function triggerSkipAlert(text) {
+            if (isLiveMode) return;
             skipAlert.innerText = text;
             skipAlert.classList.add('show');
             setTimeout(() => {
@@ -950,12 +1007,14 @@
         }
 
         function forward() { 
+            if (isLiveMode) return;
             video.currentTime += 10; 
             showControlsTemporarily(); 
             triggerSkipAlert("+10s");
         }
         
         function rewind() { 
+            if (isLiveMode) return;
             video.currentTime -= 10; 
             showControlsTemporarily(); 
             triggerSkipAlert("-10s");
