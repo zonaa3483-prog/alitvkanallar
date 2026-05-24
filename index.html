@@ -901,7 +901,7 @@
             localStorage.removeItem('elitv_state'); 
         }
 
-        // --- IPTV OYNATMA MOTORU (AzTV ve İctimai TV Uyumluluğu İle) ---
+        // --- IPTV OYNATMA MOTORU (Geliştirilmiş Kararlı Sürüm) ---
         function playMedia(url, title, element, categoryName) {
             video.pause();
             video.src = "";
@@ -934,18 +934,15 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            const isHlsStream = lowerUrl.includes('.m3u8') || lowerUrl.includes('.ts') || lowerUrl.includes('mono.strm') || lowerUrl.includes('atv') || lowerUrl.includes('aztv') || lowerUrl.includes('ictimai') || lowerUrl.includes('idman');
-            
-            // AzTV ve İctimai gibi token/CORS korumalı devlet kanallarını stabil açmak için yerel iOS/Safari/Mobile WebView hls desteği kontrolü önceliğe alındı
+            // Appilix WebView ve Safari için native m3u8 desteği kontrolü önceliğe alındı
             if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = url;
                 video.load();
                 video.play().catch(e => {
-                    // Eğer yerel oynatıcıda hata verirse alternatif olarak Hls.js dene
                     initHlsJs(url, title, element, categoryName);
                 });
                 requestWakeLock();
-            } else if (isHlsStream && Hls.isSupported()) {
+            } else if (Hls.isSupported()) {
                 initHlsJs(url, title, element, categoryName);
             } else {
                 video.src = url;
@@ -960,7 +957,7 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // AzTV / İctimai TV yayın akışlarındaki kısıtlamaları esneten HlsJS motor yükleyicisi
+        // Türk kanalları ve karmaşık m3u8 akışları için optimize edilmiş HlsJS yükleyicisi
         function initHlsJs(url, title, element, categoryName) {
             hls = new Hls({
                 enableWorker: true,
@@ -969,20 +966,24 @@
                 maxMaxBufferLength: 60,          
                 backBufferLength: 15,           
                 liveBackBufferLength: 10,        
-                maxStarvationDelay: 3,          
+                maxStarvationDelay: 4,          
                 maxLoadingDelay: 4,             
-                appendErrorMaxRetry: 50,         
+                appendErrorMaxRetry: 100,         
                 liveSyncDurationCount: 3,       
                 liveMaxLatencyDurationCount: 5,
-                nudgeMaxRetries: 40,            
+                nudgeMaxRetries: 50,            
                 nudgeDuration: 0.1,              
                 progressive: true,
                 abrEwmaFastLive: 1.0,            
                 abrEwmaSlowLive: 3.0,
+                // TS parçacık hatalarını ve sertifikaları esnetmek için ayarlar
+                forceKeyFrameOnDiscontinuity: true,
+                maxAudioFramesDrift: 1,
                 xhrSetup: function (xhr, xhrUrl) {
-                    // AzTV/İctimai token erişim hatası (CORS) vermemesi için kimlik doğrulama esnetildi
                     xhr.withCredentials = false;  
-                    xhr.setRequestHeader('Accept', '*/*');
+                    if (xhr.overrideMimeType) {
+                        xhr.overrideMimeType("application/vnd.apple.mpegurl");
+                    }
                 }
             });
             
@@ -1004,9 +1005,10 @@
                             hls.recoverMediaError();
                             break;
                         default:
-                            // Kritik hata durumlarında akışı yenile
+                            // Kritik durumlarda akışı doğrudan tarayıcı/Appilix motoruna pasla
                             video.src = url;
                             video.load();
+                            video.play().catch(e => console.log(e));
                             break;
                     }
                 }
