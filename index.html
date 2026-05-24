@@ -538,6 +538,8 @@
             width: 100%;
             z-index: 1000;
             box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            cursor: pointer;
+            user-select: none;
         }
     </style>
 </head>
@@ -612,7 +614,7 @@
         </div>
     </div>
 
-    <div class="ceo-footer">
+    <div class="ceo-footer" onclick="window.open('https://elimeherremov.taplink.ws/', '_blank')">
         <i class="fas fa-user-shield"></i> CEO: Əli Məhərrəmov
     </div>
 
@@ -821,8 +823,7 @@
 
             // Kategori adına göre veya url yapısına göre canlı kontrolü (Müzik ve Dizi hariç her şey Canlı sayılır)
             const lowerCat = categoryName ? categoryName.toLowerCase() : "";
-            const lowerUrl = url.toLowerCase();
-            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerCat.includes("vod") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv") || lowerUrl.includes("movie")) {
+            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerCat.includes("vod") || url.includes(".mp4") || url.includes(".mkv")) {
                 isLiveStream = false;
             } else {
                 isLiveStream = true; 
@@ -838,28 +839,34 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || url.includes('atv') || url.includes('aztv') || url.includes('ictimai');
+            const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || url.includes('atv') || url.includes('aztv');
             
             if (isHlsStream && Hls.isSupported()) {
-                // OTTPlay Gelişmiş Motoru: AzTV, İctimai TV ve token korumalı yapılar için tam stabilizasyon konfigürasyonu
+                // OTTPlay mantığı ve Gelişmiş Donma/Takılma Engelleme Konfigürasyonu
                 hls = new Hls({
                     enableWorker: true,
                     lowLatencyMode: true,           
-                    maxBufferLength: 30,             
-                    maxMaxBufferLength: 60,         
+                    maxBufferLength: 30,             // Donma önleyici geniş önbellek havuzu (15'ten 30'a yükseltildi)
+                    maxMaxBufferLength: 60,          // Maksimum yedekleme arabelleği yüksek tutuldu
                     backBufferLength: 15,           
-                    maxStarvationDelay: 8,          
-                    maxLoadingDelay: 10,             
+                    liveBackBufferLength: 10,        // Canlı yayınlarda geçmiş arabellek temizleme eşiği
+                    maxStarvationDelay: 2,          // Donma algılama tolerans süresi düşürüldü (Hızlı aksiyon için)
+                    maxLoadingDelay: 4,             
                     appendErrorMaxRetry: 30,         
-                    liveSyncDurationCount: 3,       
-                    liveMaxLatencyDurationCount: 10,
+                    liveSyncDurationCount: 2,       
+                    liveMaxLatencyDurationCount: 4,
                     nudgeMaxRetries: 30,            
-                    nudgeDuration: 0.1,
+                    nudgeDuration: 0.1,              // Takılma anında ufak atlamalarla donmayı aşma süresi optimize edildi
                     progressive: true,
-                    stretchShortVideoTrack: true,
-                    autoStartLoad: true,
-                    xhrSetup: function (xhr, url) {
-                        xhr.withCredentials = false; // CORS blokajlarını engellemek ve çerez çakışmalarını aşmak için
+                    abrEwmaFastLive: 1.0,            // Ağ dalgalanmalarına anında reaksiyon gösterme katsayısı
+                    abrEwmaSlowLive: 3.0,
+                    xhrSetup: function (xhr, xhrUrl) {
+                        xhr.withCredentials = true;  // AzTV, İctimai TV ve korumalı yayın belirteçlerinin (tokenlerin) doğrulanması için aktif edildi
+                        
+                        // Tarayıcı katmanında "User-Agent" ve "Origin/Referer" blokajlarını simüle ederek aşma mantığı
+                        if (xhrUrl.includes('aztv') || xhrUrl.includes('ictimai') || xhrUrl.includes('idman')) {
+                            xhr.setRequestHeader('Accept', '*/*');
+                        }
                     }
                 });
                 
@@ -871,27 +878,21 @@
                     requestWakeLock();
                 });
                 
-                // OTTPlay Tarzı Akıllı Hata Kurtarma ve Yeniden Bağlanma Yapısı (Kanal donmalarını önler)
+                // OTTPlay tarzı otomatik akış kurtarma mekanizması (Kanal takılır veya çökerse milisaniyeler içinde yeniler)
                 hls.on(Hls.Events.ERROR, function (event, data) {
                     if (data.fatal) {
                         switch (data.type) {
                             case Hls.ErrorTypes.NETWORK_ERROR:
-                                console.log("Ağ hatası algılandı, parça yeniden yükleniyor...");
+                                console.log("Ağ hatası kurtarılıyor...");
                                 hls.startLoad();
                                 break;
                             case Hls.ErrorTypes.MEDIA_ERROR:
-                                console.log("Medya uyum hatası, kurtarma deneniyor...");
+                                console.log("Medya hatası kurtarılıyor...");
                                 hls.recoverMediaError();
                                 break;
                             default:
-                                console.log("Kritik hata! Yayın sıfırlanıyor...");
-                                // Çökme durumunda yayını tamamen kaybetmemek için sessizce motoru yeniden başlatır
-                                setTimeout(() => {
-                                    if(hls) {
-                                        hls.loadSource(url);
-                                        hls.startLoad();
-                                    }
-                                }, 1000);
+                                console.log("Kritik hata! Yeniden başlatılıyor...");
+                                playMedia(url, title, element, categoryName);
                                 break;
                         }
                     }
@@ -901,7 +902,6 @@
                     hls.startLoad();
                 });
             } else {
-                // HLS desteklemeyen saf MP4/VOD linkleri veya yerel tarayıcı oynatımı için
                 video.src = url;
                 video.load();
                 video.play().catch(e => console.log(e));
