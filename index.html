@@ -164,7 +164,7 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: linear-gradient(transparent, rgba(0,0,0,0.9));
+            background: linear-gradient(transparent, rgba(0,0,0,0.95));
             display: flex;
             flex-direction: column;
             padding: 5px 15px 10px 15px;
@@ -177,18 +177,20 @@
             opacity: 1;
         }
 
+        /* Düzenleme: Şeridin butonlarla çakışmaması için en alta alındı ve boşlukları ayarlandı */
         .timeline-container {
             width: 100%;
             display: flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 5px;
+            margin-top: 8px;
+            order: 2;
             position: relative;
         }
 
         .video-progress-bar {
             flex: 1;
-            height: 5px;
+            height: 6px;
             background: rgba(255, 255, 255, 0.3);
             border-radius: 3px;
             position: relative;
@@ -211,7 +213,7 @@
         /* Süre Önizleme Balonu (Tooltip) */
         .seek-tooltip {
             position: absolute;
-            bottom: 15px;
+            bottom: 18px;
             background: rgba(0, 0, 0, 0.8);
             color: #fff;
             padding: 2px 6px;
@@ -251,7 +253,7 @@
             align-items: center;
             justify-content: space-between;
             width: 100%;
-            margin-top: 5px;
+            order: 1;
         }
 
         .control-group {
@@ -275,11 +277,14 @@
             font-size: 18px;
             cursor: pointer;
             padding: 5px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .center-controls {
             position: absolute;
-            top: 50%;
+            top: 45%; /* İlerleme çubuğundan uzaklaştırmak için biraz yukarı çekildi */
             left: 50%;
             transform: translate(-50%, -50%);
             display: flex;
@@ -579,21 +584,12 @@
         </div>
 
         <div class="video-controls" id="videoControls">
-            <div class="timeline-container" id="timelineContainer" onclick="event.stopPropagation();">
-                <div class="seek-tooltip" id="seekTooltip">00:00</div>
-                <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)" onmousemove="showTooltip(event)" onmouseleave="hideTooltip()" ontouchmove="showTooltip(event)" ontouchend="hideTooltip()">
-                    <div class="video-progress-fill" id="progressFill"></div>
-                </div>
-                <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
-            </div>
-
             <div class="control-row" onclick="event.stopPropagation();">
                 <div class="control-group">
                     <button class="control-btn" onclick="togglePlay()" id="playBtn"><i class="fas fa-pause"></i></button>
                     <button class="control-btn VOD-control" onclick="rewind()"><i class="fas fa-undo"></i></button>
                     <button class="control-btn VOD-control" onclick="forward()"><i class="fas fa-redo"></i></button>
                     
-                    <!-- Ses ve Mute Kontrol Paneli -->
                     <div class="volume-container">
                         <button class="control-btn" onclick="toggleMute()" id="muteBtn" style="padding: 5px 2px; font-size: 16px;">
                             <i class="fas fa-volume-up"></i>
@@ -601,10 +597,18 @@
                     </div>
                 </div>
                 <div class="control-group">
-                    <button class="control-btn" onclick="toggleRotate()" id="rotateBtn" title="Ekranı Çevir"><i class="fas fa-sync-alt"></i> Çevir</button>
-                    <button class="control-btn" onclick="togglePip()" id="pipBtn"><i class="fas fa-compress"></i> PiP</button>
-                    <button class="control-btn" onclick="toggleFullscreen()"><i class="fas fa-expand"></i> Tam Ekran</button>
+                    <button class="control-btn" onclick="toggleRotate()" id="rotateBtn" title="Ekranı Çevir"><i class="fas fa-sync-alt"></i></button>
+                    <button class="control-btn" onclick="togglePip()" id="pipBtn" title="PiP Modu"><i class="fas fa-compress"></i></button>
+                    <button class="control-btn" onclick="toggleFullscreen()" title="Tam Ekran"><i class="fas fa-expand"></i></button>
                 </div>
+            </div>
+
+            <div class="timeline-container" id="timelineContainer" onclick="event.stopPropagation();">
+                <div class="seek-tooltip" id="seekTooltip">00:00</div>
+                <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)" onmousemove="showTooltip(event)" onmouseleave="hideTooltip()" ontouchmove="showTooltip(event)" ontouchend="hideTooltip()">
+                    <div class="video-progress-fill" id="progressFill"></div>
+                </div>
+                <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
             </div>
         </div>
     </div>
@@ -897,7 +901,7 @@
             localStorage.removeItem('elitv_state'); 
         }
 
-        // --- IPTV OYNATMA MOTORU ---
+        // --- IPTV OYNATMA MOTORU (AzTV ve İctimai TV Uyumluluğu İle) ---
         function playMedia(url, title, element, categoryName) {
             video.pause();
             video.src = "";
@@ -913,7 +917,9 @@
             video.setAttribute('data-current-cat', categoryName || '');
 
             const lowerCat = categoryName ? categoryName.toLowerCase() : "";
-            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerCat.includes("vod") || url.includes(".mp4") || url.includes(".mkv")) {
+            const lowerUrl = url.toLowerCase();
+            
+            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerCat.includes("vod") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv")) {
                 isLiveStream = false;
             } else {
                 isLiveStream = true; 
@@ -928,59 +934,19 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || url.includes('atv') || url.includes('aztv');
+            const isHlsStream = lowerUrl.includes('.m3u8') || lowerUrl.includes('.ts') || lowerUrl.includes('mono.strm') || lowerUrl.includes('atv') || lowerUrl.includes('aztv') || lowerUrl.includes('ictimai') || lowerUrl.includes('idman');
             
-            if (isHlsStream && Hls.isSupported()) {
-                hls = new Hls({
-                    enableWorker: true,
-                    lowLatencyMode: true,           
-                    maxBufferLength: 30,             
-                    maxMaxBufferLength: 60,          
-                    backBufferLength: 15,           
-                    liveBackBufferLength: 10,        
-                    maxStarvationDelay: 2,          
-                    maxLoadingDelay: 4,             
-                    appendErrorMaxRetry: 30,         
-                    liveSyncDurationCount: 2,       
-                    liveMaxLatencyDurationCount: 4,
-                    nudgeMaxRetries: 30,            
-                    nudgeDuration: 0.1,              
-                    progressive: true,
-                    abrEwmaFastLive: 1.0,            
-                    abrEwmaSlowLive: 3.0,
-                    xhrSetup: function (xhr, xhrUrl) {
-                        xhr.withCredentials = true;  
-                        xhr.setRequestHeader('Accept', '*/*');
-                    }
+            // AzTV ve İctimai gibi token/CORS korumalı devlet kanallarını stabil açmak için yerel iOS/Safari/Mobile WebView hls desteği kontrolü önceliğe alındı
+            if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.load();
+                video.play().catch(e => {
+                    // Eğer yerel oynatıcıda hata verirse alternatif olarak Hls.js dene
+                    initHlsJs(url, title, element, categoryName);
                 });
-                
-                hls.loadSource(url);
-                hls.attachMedia(video);
-                
-                hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    video.play().catch(e => console.log(e));
-                    requestWakeLock();
-                });
-                
-                hls.on(Hls.Events.ERROR, function (event, data) {
-                    if (data.fatal) {
-                        switch (data.type) {
-                            case Hls.ErrorTypes.NETWORK_ERROR:
-                                hls.startLoad();
-                                break;
-                            case Hls.ErrorTypes.MEDIA_ERROR:
-                                hls.recoverMediaError();
-                                break;
-                            default:
-                                playMedia(url, title, element, categoryName);
-                                break;
-                        }
-                    }
-                });
-
-                hls.on(Hls.Events.BUFFER_FLUSHING, function() {
-                    hls.startLoad();
-                });
+                requestWakeLock();
+            } else if (isHlsStream && Hls.isSupported()) {
+                initHlsJs(url, title, element, categoryName);
             } else {
                 video.src = url;
                 video.load();
@@ -992,6 +958,63 @@
             centerPlayBtn.innerHTML = '<i class="fas fa-pause"></i>';
             showControlsTemporarily();
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // AzTV / İctimai TV yayın akışlarındaki kısıtlamaları esneten HlsJS motor yükleyicisi
+        function initHlsJs(url, title, element, categoryName) {
+            hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true,           
+                maxBufferLength: 30,             
+                maxMaxBufferLength: 60,          
+                backBufferLength: 15,           
+                liveBackBufferLength: 10,        
+                maxStarvationDelay: 3,          
+                maxLoadingDelay: 4,             
+                appendErrorMaxRetry: 50,         
+                liveSyncDurationCount: 3,       
+                liveMaxLatencyDurationCount: 5,
+                nudgeMaxRetries: 40,            
+                nudgeDuration: 0.1,              
+                progressive: true,
+                abrEwmaFastLive: 1.0,            
+                abrEwmaSlowLive: 3.0,
+                xhrSetup: function (xhr, xhrUrl) {
+                    // AzTV/İctimai token erişim hatası (CORS) vermemesi için kimlik doğrulama esnetildi
+                    xhr.withCredentials = false;  
+                    xhr.setRequestHeader('Accept', '*/*');
+                }
+            });
+            
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                video.play().catch(e => console.log(e));
+                requestWakeLock();
+            });
+            
+            hls.on(Hls.Events.ERROR, function (event, data) {
+                if (data.fatal) {
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            // Kritik hata durumlarında akışı yenile
+                            video.src = url;
+                            video.load();
+                            break;
+                    }
+                }
+            });
+
+            hls.on(Hls.Events.BUFFER_FLUSHING, function() {
+                hls.startLoad();
+            });
         }
 
         function toggleControlElements() {
@@ -1191,12 +1214,10 @@
             if (!document.fullscreenElement && videoContainer.classList.contains('landscape-mode')) exitLandscape();
         });
 
-        // --- YOUTUBE STİLİ PICTURE-IN-PICTURE (PiP) MOTORU (WebView & Mobil Uyumlu) ---
+        // --- PICTURE-IN-PICTURE (PiP) MOTORU ---
         async function togglePip() {
             try {
                 isChangingPip = true;
-                
-                // 1. Adım: Modern tarayıcılar için standart PiP kontrolü
                 if (document.pictureInPictureEnabled && video.requestPictureInPicture) {
                     if (video !== document.pictureInPictureElement) {
                         await video.requestPictureInPicture();
@@ -1204,13 +1225,11 @@
                         await document.exitPictureInPicture();
                     }
                 } 
-                // 2. Adım: iOS WebView ve Appilix tarzı altyapılarda tam ekrana zorlamadan arka planda oynatma modunu tetikleme
                 else if (video.webkitSupportsPresentationMode && typeof video.webkitSetPresentationMode === "function") {
                     const currentMode = video.webkitPresentationMode;
                     if (currentMode === "picture-in-picture") {
                         video.webkitSetPresentationMode("inline");
                     } else {
-                        // Tam ekran (fullscreen) yerine doğrudan pencere moduna geçiş komutu
                         video.webkitSetPresentationMode("picture-in-picture");
                     }
                 } 
@@ -1221,7 +1240,6 @@
                 console.log("PiP Hatası: ", error);
             } finally {
                 isChangingPip = false;
-                // WebView geçişleri esnasında videonun pause durumuna düşmesini engelleme garantisi
                 if (!video.paused) {
                     video.play().catch(e => console.log(e));
                 }
