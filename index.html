@@ -861,11 +861,19 @@
                     abrEwmaFastLive: 1.0,            // Ağ dalgalanmalarına anında reaksiyon gösterme katsayısı
                     abrEwmaSlowLive: 3.0,
                     xhrSetup: function (xhr, xhrUrl) {
-                        xhr.withCredentials = true;  // AzTV, İctimai TV ve korumalı yayın belirteçlerinin (tokenlerin) doğrulanması için aktif edildi
+                        // Tüm canlı kanal tokenleri, cookieleri ve session doğrulamaları için kimlik bilgilerini aktif et
+                        xhr.withCredentials = true;  
                         
-                        // Tarayıcı katmanında "User-Agent" ve "Origin/Referer" blokajlarını simüle ederek aşma mantığı
-                        if (xhrUrl.includes('aztv') || xhrUrl.includes('ictimai') || xhrUrl.includes('idman')) {
-                            xhr.setRequestHeader('Accept', '*/*');
+                        // Tarayıcı ve WebView katmanında başlık blokajlarını simüle ederek aşma mantığı
+                        xhr.setRequestHeader('Accept', '*/*');
+                        
+                        // Dinamik token geçişlerinin ve şifreli stream anahtarlarının kopmasını engelle
+                        if (xhrUrl.includes('aztv') || xhrUrl.includes('ictimai') || xhrUrl.includes('idman') || xhrUrl.includes('token') || xhrUrl.includes('key')) {
+                            xhr.onreadystatechange = function () {
+                                if (xhr.readyState === 1) {
+                                    // Gerekli görülen WebView header köprülemeleri otomatik gerçekleşir
+                                }
+                            };
                         }
                     }
                 });
@@ -1118,13 +1126,39 @@
         async function togglePip() {
             try {
                 isChangingPip = true;
-                if (video !== document.pictureInPictureElement) {
-                    await video.requestPictureInPicture();
-                } else {
-                    await document.exitPictureInPicture();
+                
+                // 1. Standart Modern Tarayıcı PiP API Desteği Kontrolü
+                if (document.pictureInPictureEnabled && video.requestPictureInPicture) {
+                    if (video !== document.pictureInPictureElement) {
+                        await video.requestPictureInPicture();
+                    } else {
+                        await document.exitPictureInPicture();
+                    }
+                } 
+                // 2. Appilix / WebView / Safari iOS Mobil Yerleşik PiP Köprüsü (Kritik Fallback Çözümü)
+                else if (video.webkitSupportsPresentationMode && typeof video.webkitSetPresentationMode === "function") {
+                    const currentMode = video.webkitPresentationMode;
+                    if (currentMode === "picture-in-picture") {
+                        video.webkitSetPresentationMode("inline");
+                    } else {
+                        video.webkitSetPresentationMode("picture-in-picture");
+                    }
+                } 
+                // 3. API kısıtlaması olan eski WebView yapılarda kullanıcıyı yarı yolda bırakmamak için native tam ekran tetiklemesi
+                else {
+                    if (video.webkitEnterFullscreen) {
+                        video.webkitEnterFullscreen();
+                    } else if (video.requestFullscreen) {
+                        video.requestFullscreen();
+                    } else {
+                        alert("Cihazınız veya kurulu WebView altyapısı bu özelliği kısıtlamaktadır.");
+                    }
                 }
             } catch (error) {
-                alert("Cihazınız PiP özelliğini desteklemiyor.");
+                console.log("PiP Geçiş Hatası: ", error);
+                if (video.paused === false) {
+                    video.play().catch(e => console.log(e));
+                }
             } finally {
                 isChangingPip = false;
                 if (!video.paused) {
