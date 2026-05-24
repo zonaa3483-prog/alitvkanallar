@@ -183,6 +183,7 @@
             align-items: center;
             gap: 10px;
             margin-bottom: 5px;
+            position: relative;
         }
 
         .video-progress-bar {
@@ -205,6 +206,44 @@
             font-size: 12px;
             color: #fff;
             white-space: nowrap;
+        }
+
+        /* Süre Önizleme Balonu (Tooltip) */
+        .seek-tooltip {
+            position: absolute;
+            bottom: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            pointer-events: none;
+            display: none;
+            transform: translateX(-50%);
+            z-index: 1020;
+        }
+
+        /* Ekran Ortasındaki Hızlandırma Yazısı (+10 / -10) */
+        .skip-alert {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: 700;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 1015;
+        }
+
+        .skip-alert.show {
+            opacity: 1;
         }
 
         .control-row {
@@ -271,14 +310,50 @@
             padding-bottom: 60px;
         }
 
+        .section-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            gap: 10px;
+        }
+
         .section-title {
             font-size: 16px;
             font-weight: 700;
-            margin-bottom: 12px;
             color: var(--accent-color);
             display: flex;
             align-items: center;
             gap: 6px;
+            white-space: nowrap;
+        }
+
+        /* Arama Kutusu Stilleri */
+        .search-container {
+            position: relative;
+            flex: 1;
+            max-width: 250px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 6px 12px 6px 32px;
+            font-size: 13px;
+            border-radius: 15px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-color);
+            outline: none;
+            transition: 0.3s;
+        }
+
+        .search-container i {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-dim);
+            font-size: 13px;
         }
 
         .status-msg {
@@ -308,6 +383,10 @@
             border: 1px solid var(--border-color);
             overflow: hidden;
             transition: 0.3s;
+        }
+
+        .accordion-item.hidden-by-search {
+            display: none !important;
         }
 
         .accordion-header {
@@ -365,6 +444,10 @@
             border-bottom: 1px solid var(--border-color);
             cursor: pointer;
             transition: background 0.2s, color 0.2s;
+        }
+
+        .stream-list-item.hidden-by-search {
+            display: none !important;
         }
 
         .stream-list-item:last-child {
@@ -461,6 +544,8 @@
 
         <video id="mainPlayer" playsinline></video>
         
+        <div class="skip-alert" id="skipAlert">+10s</div>
+
         <div class="center-controls">
             <button class="center-btn" onclick="event.stopPropagation(); rewind();"><i class="fas fa-backward"></i></button>
             <button class="center-btn" id="centerPlayBtn" onclick="event.stopPropagation(); togglePlay();"><i class="fas fa-play"></i></button>
@@ -469,7 +554,8 @@
 
         <div class="video-controls" id="videoControls">
             <div class="timeline-container" onclick="event.stopPropagation();">
-                <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)">
+                <div class="seek-tooltip" id="seekTooltip">00:00</div>
+                <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)" onmousemove="showTooltip(event)" onmouseleave="hideTooltip()" ontouchmove="showTooltip(event)" ontouchend="hideTooltip()">
                     <div class="video-progress-fill" id="progressFill"></div>
                 </div>
                 <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
@@ -491,8 +577,14 @@
     </div>
 
     <div class="content-area">
-        <div class="section-title">
-            <i class="fas fa-film"></i> Diziler ve Listeler
+        <div class="section-header-row">
+            <div class="section-title">
+                <i class="fas fa-film"></i> Diziler ve Listeler
+            </div>
+            <div class="search-container" id="searchBoxContainer" style="display: none;">
+                <i class="fas fa-search"></i>
+                <input type="text" class="search-input" id="searchInput" placeholder="Ara..." oninput="filterPlaylist()">
+            </div>
         </div>
 
         <div id="statusLayout" class="status-msg">
@@ -520,6 +612,7 @@
         let hls = null;
         let controlsTimeout = null;
         let isChangingPip = false; 
+        let wakeLock = null; // Ekranın sönmesini önleme kilidi
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -530,6 +623,8 @@
         const progressFill = document.getElementById('progressFill');
         const timeDisplay = document.getElementById('timeDisplay');
         const mediaTitleOverlay = document.getElementById('mediaTitleOverlay');
+        const seekTooltip = document.getElementById('seekTooltip');
+        const skipAlert = document.getElementById('skipAlert');
 
         // --- M3U PARSER ---
         async function fetchAndParseM3U() {
@@ -593,6 +688,7 @@
             }
             document.getElementById('statusLayout').style.display = 'none';
             document.getElementById('mainLayout').style.display = 'block';
+            document.getElementById('searchBoxContainer').style.display = 'block';
             renderAccordion();
         }
 
@@ -611,7 +707,7 @@
                 const header = document.createElement('div');
                 header.className = 'accordion-header';
                 header.innerHTML = `
-                    <div>${catName} <span class="count-badge">${items.length}</span></div>
+                    <div><span class="cat-text">${catName}</span> <span class="count-badge">${items.length}</span></div>
                     <i class="fas fa-chevron-down"></i>
                 `;
                 
@@ -653,6 +749,54 @@
             });
         }
 
+        // Canlı Arama Filtreleme Motoru
+        function filterPlaylist() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const accordionItems = document.querySelectorAll('.accordion-item');
+
+            accordionItems.forEach(item => {
+                const catText = item.querySelector('.cat-text').innerText.toLowerCase();
+                const listItems = item.querySelectorAll('.stream-list-item');
+                let matchCount = 0;
+
+                listItems.forEach(stream => {
+                    const streamName = stream.querySelector('.stream-name').innerText.toLowerCase();
+                    if (streamName.includes(query) || catText.includes(query)) {
+                        stream.classList.remove('hidden-by-search');
+                        matchCount++;
+                    } else {
+                        stream.classList.add('hidden-by-search');
+                    }
+                });
+
+                if (matchCount > 0 || query === '') {
+                    item.classList.remove('hidden-by-search');
+                    if (query !== '') {
+                        item.classList.add('active');
+                    }
+                } else {
+                    item.classList.add('hidden-by-search');
+                }
+            });
+        }
+
+        // --- EKRANIN KAPANMASINI ENGELLEME MOTORU (WAKE LOCK) ---
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
+            } catch (err) {
+                console.log(`Wake Lock hatası: ${err.message}`);
+            }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => { wakeLock = null; });
+            }
+        }
+
         // --- IPTV OYNATMA MOTORU VE AKTİF SEÇİM IŞIĞI ---
         function playMedia(url, title, element) {
             if (hls) {
@@ -690,6 +834,7 @@
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, function() {
                     video.play().catch(e => console.log(e));
+                    requestWakeLock();
                 });
                 
                 hls.on(Hls.Events.BUFFER_FLUSHING, function() {
@@ -699,6 +844,7 @@
                 video.src = url;
                 video.load();
                 video.play().catch(e => console.log(e));
+                requestWakeLock();
             }
 
             playBtn.innerHTML = '<i class="fas fa-pause"></i>';
@@ -710,7 +856,6 @@
         // --- %100 DAKİK SÜRE VE İLERLEME ÇUBUĞU MOTORU ---
         video.addEventListener('timeupdate', () => {
             if (video.duration && isFinite(video.duration) && video.duration > 0) {
-                // Tarayıcıdan gelen ham süre anlık matematiksel tabana çekilerek dakikleştirildi
                 const currentSecs = Math.floor(video.currentTime);
                 const totalSecs = Math.floor(video.duration);
                 
@@ -740,13 +885,35 @@
             const mDisplay = minutes < 10 ? '0' + minutes : minutes;
             const sDisplay = seconds < 10 ? '0' + seconds : seconds;
 
-            // Dizi veya Film 1 saatten uzunsa -> Örn: 02:12:30 veya 01:05:45 tam saati gösterir
             if (totalHours > 0) {
                 return `${hDisplay}:${mDisplay}:${sDisplay}`;
             } else {
-                // Dizi veya Film 1 saatten kısaysa -> Örn: 45:15 veya 02:45 dakik formatı gösterir
                 return `${mDisplay}:${sDisplay}`;
             }
+        }
+
+        // Xette (İlerleme çubuğu) üzerinde gezindikde saniyeleri gösteren fonksiyon
+        function showTooltip(event) {
+            if (!video.duration || !isFinite(video.duration)) return;
+            const rect = progressBar.getBoundingClientRect();
+            let clientX = event.clientX;
+            
+            if (event.touches && event.touches.length > 0) {
+                clientX = event.touches[0].clientX;
+            }
+            
+            let clickX = clientX - rect.left;
+            if (clickX < 0) clickX = 0;
+            if (clickX > rect.width) clickX = rect.width;
+            
+            const seekTime = (clickX / rect.width) * video.duration;
+            seekTooltip.innerText = formatTime(Math.floor(seekTime), video.duration);
+            seekTooltip.style.left = `${clickX}px`;
+            seekTooltip.style.display = 'block';
+        }
+
+        function hideTooltip() {
+            seekTooltip.style.display = 'none';
         }
 
         function seekVideo(event) {
@@ -754,7 +921,7 @@
             const rect = progressBar.getBoundingClientRect();
             const clickX = event.clientX - rect.left;
             const seekTime = (clickX / rect.width) * video.duration;
-            video.currentTime = Math.floor(seekTime); // Sarmada dakik noktaya kilitler
+            video.currentTime = Math.floor(seekTime);
         }
 
         // --- KONTROLLER VE GELİŞTİRİLMİŞ OYNAT/DURAKLAT TIKLAMA SİSTEMİ ---
@@ -763,29 +930,44 @@
                 video.play().catch(e => console.log(e));
                 playBtn.innerHTML = '<i class="fas fa-pause"></i>';
                 centerPlayBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                requestWakeLock();
             } else {
                 video.pause();
                 playBtn.innerHTML = '<i class="fas fa-play"></i>';
                 centerPlayBtn.innerHTML = '<i class="fas fa-play"></i>';
+                releaseWakeLock();
             }
             showControlsTemporarily();
         }
 
-        function forward() { video.currentTime += 10; showControlsTemporarily(); }
-        function rewind() { video.currentTime -= 10; showControlsTemporarily(); }
+        // İleri - Geri sarma uyarı yazısı tetikleyicisi
+        function triggerSkipAlert(text) {
+            skipAlert.innerText = text;
+            skipAlert.classList.add('show');
+            setTimeout(() => {
+                skipAlert.classList.remove('show');
+            }, 500);
+        }
 
-        // Video gövdesine tıklandığında anında duraklatma / başlatma tetikleyicisi
+        function forward() { 
+            video.currentTime += 10; 
+            showControlsTemporarily(); 
+            triggerSkipAlert("+10s");
+        }
+        
+        function rewind() { 
+            video.currentTime -= 10; 
+            showControlsTemporarily(); 
+            triggerSkipAlert("-10s");
+        }
+
+        // İstediğin video gövdesi tıklama kuralı güncellendi
         videoContainer.addEventListener('click', function(e) {
             const isClickOnControls = videoControls.contains(e.target) || e.target.closest('.center-btn') || e.target.closest('#landscapeBackBtn');
             
             if (!isClickOnControls) {
-                if (videoContainer.classList.contains('show-controls')) {
-                    togglePlay();
-                    videoContainer.classList.remove('show-controls');
-                    if (controlsTimeout) clearTimeout(controlsTimeout);
-                } else {
-                    showControlsTemporarily();
-                }
+                // Boş alanlara basıldığında video kapanmaz, sadece kontroller gelir
+                showControlsTemporarily();
             }
         });
 
@@ -811,22 +993,41 @@
             else exitLandscape();
         }
 
+        // Appilix ve Webview uyumluluğu için güçlendirilmiş yön kilitleme motoru
         function enterLandscape() {
             videoContainer.classList.add('landscape-mode');
             document.body.style.overflow = 'hidden';
+            
             if (videoContainer.requestFullscreen) {
                 videoContainer.requestFullscreen().then(() => {
-                    if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(e => console.log(e));
+                    lockScreenOrientation();
+                }).catch(() => {
+                    lockScreenOrientation();
                 });
+            } else {
+                lockScreenOrientation();
             }
             showControlsTemporarily();
+        }
+
+        function lockScreenOrientation() {
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(e => console.log("Yön kilitlenemedi: ", e));
+            } else if (screen.lockOrientation) {
+                screen.lockOrientation('landscape');
+            }
         }
 
         function exitLandscape() {
             videoContainer.classList.remove('landscape-mode');
             document.body.style.overflow = '';
             if (document.fullscreenElement) document.exitFullscreen();
-            if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+            
+            if (screen.orientation && screen.orientation.unlock) {
+                screen.orientation.unlock();
+            } else if (screen.unlockOrientation) {
+                screen.unlockOrientation();
+            }
             showControlsTemporarily();
         }
 
@@ -877,6 +1078,13 @@
                 btn.innerHTML = '<i class="fas fa-sun"></i> Gündüz';
             }
         }
+
+        // Uygulama arka plana atıldığında veya sekme değiştiğinde kilit durumunu yönet
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && !video.paused) {
+                requestWakeLock();
+            }
+        });
 
         window.onload = () => {
             fetchAndParseM3U();
