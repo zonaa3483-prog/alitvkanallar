@@ -177,7 +177,6 @@
             opacity: 1;
         }
 
-        /* Düzenleme: Şeridin butonlarla çakışmaması için en alta alındı ve boşlukları ayarlandı */
         .timeline-container {
             width: 100%;
             display: flex;
@@ -210,7 +209,6 @@
             white-space: nowrap;
         }
 
-        /* Süre Önizleme Balonu (Tooltip) */
         .seek-tooltip {
             position: absolute;
             bottom: 18px;
@@ -226,7 +224,6 @@
             z-index: 1020;
         }
 
-        /* Ekran Ortasındaki Hızlandırma Yazısı (+10 / -10) */
         .skip-alert {
             position: absolute;
             top: 50%;
@@ -262,7 +259,6 @@
             gap: 10px;
         }
 
-        /* Ses Kontrol Alanı Stili */
         .volume-container {
             display: flex;
             align-items: center;
@@ -284,7 +280,7 @@
 
         .center-controls {
             position: absolute;
-            top: 45%; /* İlerleme çubuğundan uzaklaştırmak için biraz yukarı çekildi */
+            top: 45%;
             left: 50%;
             transform: translate(-50%, -50%);
             display: flex;
@@ -314,7 +310,6 @@
             justify-content: center;
         }
 
-        /* Canlı Yayın Badge Stili */
         .live-indicator {
             color: #ff0055;
             font-weight: bold;
@@ -357,7 +352,6 @@
             white-space: nowrap;
         }
 
-        /* Arama Kutusu Stilleri */
         .search-container {
             position: relative;
             flex: 1;
@@ -469,7 +463,7 @@
         .stream-list-item {
             display: flex;
             align-items: center;
-            padding: 12px 15px;
+            padding: 14px 15px; /* Logo kalktığı için dikey boşluk biraz artırıldı */
             border-bottom: 1px solid var(--border-color);
             cursor: pointer;
             transition: background 0.2s, color 0.2s;
@@ -488,36 +482,8 @@
             color: #ffffff !important;
         }
 
-        .stream-list-item.playing-active .stream-name,
-        .stream-list-item.playing-active i {
+        .stream-list-item.playing-active .stream-name {
             color: #ffffff !important;
-        }
-
-        .stream-logo {
-            width: 40px;
-            height: 40px;
-            background: rgba(0,0,0,0.05);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 15px;
-            flex-shrink: 0;
-            position: relative;
-            border: 1px solid var(--border-color);
-        }
-
-        .stream-logo img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 5px;
-            position: absolute;
-        }
-
-        .stream-logo i {
-            color: var(--text-dim);
-            font-size: 16px;
         }
 
         .stream-details {
@@ -666,6 +632,27 @@
         const timelineContainer = document.getElementById('timelineContainer');
         const muteBtn = document.getElementById('muteBtn');
 
+        // --- Geliştirilmiş Kesintisiz WakeLock Sistemi ---
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    // Eski kilit varsa önce serbest bırakalım
+                    if (wakeLock !== null) {
+                        await wakeLock.release();
+                        wakeLock = null;
+                    }
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
+            } catch (err) {
+                console.log(`Wake Lock hatası: ${err.message}`);
+            }
+        }
+
+        function releaseWakeLock() {
+            // İstek üzerine video durduğunda ekranın sönmemesi için bu fonksiyonu boşa çıkardık veya sınırlandırdık.
+            // Kullanıcı kapatıncaya kadar ekran sönmeyecek.
+        }
+
         // --- M3U PARSER ---
         async function fetchAndParseM3U() {
             try {
@@ -729,8 +716,8 @@
             document.getElementById('statusLayout').style.display = 'none';
             document.getElementById('mainLayout').style.display = 'block';
             document.getElementById('searchBoxContainer').style.display = 'block';
-            renderAccordion();
             
+            renderAccordion();
             restoreAppState();
         }
 
@@ -766,13 +753,8 @@
                     listItem.setAttribute('data-url', item.url);
                     listItem.onclick = () => playMedia(item.url, item.title, listItem, catName);
                     
-                    const imgHTML = item.logo ? `<img src="${item.logo}" onerror="this.style.display='none'">` : '';
-                    
+                    // İstek doğrultusunda logolar ve ikon alanları tamamen kaldırıldı, sadece isim kaldı.
                     listItem.innerHTML = `
-                        <div class="stream-logo">
-                            ${imgHTML}
-                            <i class="fas fa-film"></i>
-                        </div>
                         <div class="stream-details">
                             <div class="stream-name">${item.title}</div>
                         </div>
@@ -822,23 +804,6 @@
             });
         }
 
-        async function requestWakeLock() {
-            try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                }
-            } catch (err) {
-                console.log(`Wake Lock hatası: ${err.message}`);
-            }
-        }
-
-        function releaseWakeLock() {
-            if (wakeLock !== null) {
-                wakeLock.release().then(() => { wakeLock = null; });
-            }
-        }
-
-        // --- TIKLA AÇ / TIKLA KAPAT SES SİSTEMİ ---
         function toggleMute() {
             if (video.muted) {
                 video.muted = false;
@@ -851,7 +816,7 @@
             }
         }
 
-        // --- STATE KORUMA VE REDİRECT ---
+        // --- STATE KORUMA VE REDİRECT (CEO Hafıza Sistemi) ---
         function saveStateAndRedirect() {
             const state = {
                 url: video.getAttribute('data-current-url') || '',
@@ -878,6 +843,7 @@
                             const streams = item.querySelectorAll('.stream-list-item');
                             streams.forEach(str => {
                                 if (str.getAttribute('data-url') === state.url) {
+                                    // Geri dönüldüğünde kırmızı rengi (aktifliği) tam olarak korur
                                     str.classList.add('playing-active');
                                 }
                             });
@@ -901,7 +867,7 @@
             localStorage.removeItem('elitv_state'); 
         }
 
-        // --- IPTV OYNATMA MOTORU (Geliştirilmiş Kararlı Sürüm) ---
+        // --- IPTV OYNATMA MOTORU ---
         function playMedia(url, title, element, categoryName) {
             video.pause();
             video.src = "";
@@ -928,13 +894,18 @@
             toggleControlElements();
 
             document.querySelectorAll('.stream-list-item').forEach(el => el.classList.remove('playing-active'));
+            
+            // Eğer fonksiyon el ile tetiklendiyse element seçilir, state'den döndüyse yukarıda restore içinde seçildi
             if(element) {
                 element.classList.add('playing-active');
+            } else {
+                // Link eşleşmesine göre dom'dan bulup kırmızı yapma garantisi
+                const targetElement = document.querySelector(`.stream-list-item[data-url="${url}"]`);
+                if(targetElement) targetElement.classList.add('playing-active');
             }
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            // Appilix WebView ve Safari için native m3u8 desteği kontrolü önceliğe alındı
             if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = url;
                 video.load();
@@ -957,7 +928,6 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // Türk kanalları ve karmaşık m3u8 akışları için optimize edilmiş HlsJS yükleyicisi
         function initHlsJs(url, title, element, categoryName) {
             hls = new Hls({
                 enableWorker: true,
@@ -976,7 +946,6 @@
                 progressive: true,
                 abrEwmaFastLive: 1.0,            
                 abrEwmaSlowLive: 3.0,
-                // TS parçacık hatalarını ve sertifikaları esnetmek için ayarlar
                 forceKeyFrameOnDiscontinuity: true,
                 maxAudioFramesDrift: 1,
                 xhrSetup: function (xhr, xhrUrl) {
@@ -1005,7 +974,6 @@
                             hls.recoverMediaError();
                             break;
                         default:
-                            // Kritik durumlarda akışı doğrudan tarayıcı/Appilix motoruna pasla
                             video.src = url;
                             video.load();
                             video.play().catch(e => console.log(e));
@@ -1106,19 +1074,17 @@
             video.currentTime = Math.floor(seekTime);
         }
 
-        // --- KONTROLLER VE OYNAT/DURAKLAT TIKLAMA SİSTEMİ ---
         function togglePlay() {
             if (video.paused) {
                 video.play().catch(e => console.log(e));
                 playBtn.innerHTML = '<i class="fas fa-pause"></i>';
                 centerPlayBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                requestWakeLock();
             } else {
                 video.pause();
                 playBtn.innerHTML = '<i class="fas fa-play"></i>';
                 centerPlayBtn.innerHTML = '<i class="fas fa-play"></i>';
-                releaseWakeLock();
             }
+            requestWakeLock(); // Duraklatılsa dahi ekranın sönmemesi için kilidi taze tutuyoruz
             showControlsTemporarily();
         }
 
@@ -1147,7 +1113,6 @@
 
         videoContainer.addEventListener('click', function(e) {
             const isClickOnControls = videoControls.contains(e.target) || e.target.closest('.center-btn') || e.target.closest('#landscapeBackBtn');
-            
             if (!isClickOnControls) {
                 showControlsTemporarily();
             }
@@ -1170,6 +1135,10 @@
             }
         }
 
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && videoContainer.classList.contains('landscape-mode')) exitLandscape();
+        });
+
         function toggleRotate() {
             if (!videoContainer.classList.contains('landscape-mode')) enterLandscape();
             else exitLandscape();
@@ -1178,7 +1147,6 @@
         function enterLandscape() {
             videoContainer.classList.add('landscape-mode');
             document.body.style.overflow = 'hidden';
-            
             if (videoContainer.requestFullscreen) {
                 videoContainer.requestFullscreen().then(() => {
                     lockScreenOrientation();
@@ -1203,7 +1171,6 @@
             videoContainer.classList.remove('landscape-mode');
             document.body.style.overflow = '';
             if (document.fullscreenElement) document.exitFullscreen();
-            
             if (screen.orientation && screen.orientation.unlock) {
                 screen.orientation.unlock();
             } else if (screen.unlockOrientation) {
@@ -1212,11 +1179,6 @@
             showControlsTemporarily();
         }
 
-        document.addEventListener('fullscreenchange', () => {
-            if (!document.fullscreenElement && videoContainer.classList.contains('landscape-mode')) exitLandscape();
-        });
-
-        // --- PICTURE-IN-PICTURE (PiP) MOTORU ---
         async function togglePip() {
             try {
                 isChangingPip = true;
@@ -1258,11 +1220,9 @@
             }, 100);
         });
 
-        // --- TEMA DEĞİŞTİRİCİ ---
         function toggleTheme() {
             const body = document.body;
             const btn = document.getElementById('themeBtn');
-            
             if (body.getAttribute('data-theme') === 'dark') {
                 body.removeAttribute('data-theme');
                 currentTheme = 'light';
@@ -1274,14 +1234,16 @@
             }
         }
 
+        // Uygulama her açıldığında veya görünür olduğunda ekran kilidini zorla aktif et
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && !video.paused) {
+            if (document.visibilityState === 'visible') {
                 requestWakeLock();
             }
         });
 
         window.onload = () => {
             fetchAndParseM3U();
+            requestWakeLock(); // İlk açılışta ekran sönme engelini başlatır
         };
     </script>
 </body>
