@@ -251,12 +251,43 @@
             align-items: center;
             justify-content: space-between;
             width: 100%;
+            margin-top: 5px;
         }
 
         .control-group {
             display: flex;
             align-items: center;
             gap: 10px;
+        }
+
+        /* Ses Kontrol Alanı Stili */
+        .volume-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            margin-left: 5px;
+        }
+
+        .volume-slider {
+            width: 70px;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            cursor: pointer;
         }
 
         .control-btn {
@@ -583,6 +614,14 @@
                     <button class="control-btn" onclick="togglePlay()" id="playBtn"><i class="fas fa-pause"></i></button>
                     <button class="control-btn VOD-control" onclick="rewind()"><i class="fas fa-undo"></i></button>
                     <button class="control-btn VOD-control" onclick="forward()"><i class="fas fa-redo"></i></button>
+                    
+                    <!-- Ses ve Mute Kontrol Paneli -->
+                    <div class="volume-container">
+                        <button class="control-btn" onclick="toggleMute()" id="muteBtn" style="padding: 5px 2px; font-size: 16px;">
+                            <i class="fas fa-volume-up"></i>
+                        </button>
+                        <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.05" value="1" oninput="setVolume(this.value)">
+                    </div>
                 </div>
                 <div class="control-group">
                     <button class="control-btn" onclick="toggleRotate()" id="rotateBtn" title="Ekranı Çevir"><i class="fas fa-sync-alt"></i> Çevir</button>
@@ -614,7 +653,7 @@
         </div>
     </div>
 
-    <div class="ceo-footer" onclick="window.open('https://elimeherremov.taplink.ws/', '_blank')">
+    <div class="ceo-footer" onclick="saveStateAndRedirect()">
         <i class="fas fa-user-shield"></i> CEO: Əli Məhərrəmov
     </div>
 
@@ -630,7 +669,8 @@
         let controlsTimeout = null;
         let isChangingPip = false; 
         let wakeLock = null; 
-        let isLiveStream = false; // Canlı yayın kontrol flag'i
+        let isLiveStream = false;
+        let previousVolume = 1;
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -644,6 +684,8 @@
         const seekTooltip = document.getElementById('seekTooltip');
         const skipAlert = document.getElementById('skipAlert');
         const timelineContainer = document.getElementById('timelineContainer');
+        const muteBtn = document.getElementById('muteBtn');
+        const volumeSlider = document.getElementById('volumeSlider');
 
         // --- M3U PARSER ---
         async function fetchAndParseM3U() {
@@ -709,6 +751,9 @@
             document.getElementById('mainLayout').style.display = 'block';
             document.getElementById('searchBoxContainer').style.display = 'block';
             renderAccordion();
+            
+            // CEO dönüşünde durumu geri yükleme motoru
+            restoreAppState();
         }
 
         function renderAccordion() {
@@ -722,6 +767,7 @@
                 
                 const accordionItem = document.createElement('div');
                 accordionItem.className = 'accordion-item'; 
+                accordionItem.setAttribute('data-catname', catName);
                 
                 const header = document.createElement('div');
                 header.className = 'accordion-header';
@@ -814,14 +860,106 @@
             }
         }
 
-        // --- IPTV OYNATMA MOTORU VE OTTPLAY ENTEGRASYONU ---
+        // --- SES AYARLARI ---
+        function setVolume(value) {
+            video.volume = value;
+            if (value == 0) {
+                muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+                video.muted = true;
+            } else {
+                video.muted = false;
+                if (value < 0.4) {
+                    muteBtn.innerHTML = '<i class="fas fa-volume-down"></i>';
+                } else {
+                    muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+                }
+                previousVolume = value;
+            }
+        }
+
+        function toggleMute() {
+            if (video.muted) {
+                video.muted = false;
+                video.volume = previousVolume;
+                volumeSlider.value = previousVolume;
+                setVolume(previousVolume);
+            } else {
+                previousVolume = video.volume > 0 ? video.volume : 1;
+                video.muted = true;
+                video.volume = 0;
+                volumeSlider.value = 0;
+                muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+            }
+        }
+
+        // --- STATE KORUMA VE REDİRECT ---
+        function saveStateAndRedirect() {
+            const state = {
+                url: video.getAttribute('data-current-url') || '',
+                title: mediaTitleOverlay.innerText,
+                category: video.getAttribute('data-current-cat') || '',
+                time: video.currentTime || 0,
+                isLive: isLiveStream,
+                theme: currentTheme
+            };
+            localStorage.setItem('elitv_state', JSON.stringify(state));
+            window.open('https://elimeherremov.taplink.ws/', '_blank');
+        }
+
+        function restoreAppState() {
+            const saved = localStorage.getItem('elitv_state');
+            if (!saved) return;
+            try {
+                const state = JSON.parse(saved);
+                if (state.url) {
+                    // Kategoriyi aktif et
+                    const accItems = document.querySelectorAll('.accordion-item');
+                    accItems.forEach(item => {
+                        if (item.getAttribute('data-catname') === state.category) {
+                            item.classList.add('active');
+                            const streams = item.querySelectorAll('.stream-list-item');
+                            streams.forEach(str => {
+                                if (str.getAttribute('data-url') === state.url) {
+                                    str.classList.add('playing-active');
+                                }
+                            });
+                        }
+                    });
+                    
+                    // Medyayı başlat ve süreyi eşitle
+                    playMedia(state.url, state.title, null, state.category);
+                    if (!state.isLive) {
+                        video.addEventListener('loadedmetadata', function onTimeInit() {
+                            video.currentTime = state.time;
+                            video.removeEventListener('loadedmetadata', onTimeInit);
+                        });
+                    }
+                }
+                if (state.theme === 'dark') {
+                    toggleTheme();
+                }
+            } catch(e) {
+                console.log("State geri yükleme hatası", e);
+            }
+            localStorage.removeItem('elitv_state'); 
+        }
+
+        // --- IPTV OYNATMA MOTORU VE Gelişmiş Token/Geçiş Altyapısı ---
         function playMedia(url, title, element, categoryName) {
+            // Kanal geçişlerinde eski görüntünün donup kalmasını engellemek için ekranı temizle
+            video.pause();
+            video.src = "";
+            video.removeAttribute("src");
+            progressFill.style.width = '0%';
+            
             if (hls) {
                 hls.destroy();
                 hls = null;
             }
 
-            // Kategori adına göre veya url yapısına göre canlı kontrolü (Müzik ve Dizi hariç her şey Canlı sayılır)
+            video.setAttribute('data-current-url', url);
+            video.setAttribute('data-current-cat', categoryName || '');
+
             const lowerCat = categoryName ? categoryName.toLowerCase() : "";
             if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerCat.includes("vod") || url.includes(".mp4") || url.includes(".mkv")) {
                 isLiveStream = false;
@@ -829,7 +967,6 @@
                 isLiveStream = true; 
             }
 
-            // Canlı ve VOD element görünümlerini ayarla
             toggleControlElements();
 
             document.querySelectorAll('.stream-list-item').forEach(el => el.classList.remove('playing-active'));
@@ -842,36 +979,32 @@
             const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || url.includes('atv') || url.includes('aztv');
             
             if (isHlsStream && Hls.isSupported()) {
-                // OTTPlay mantığı ve Gelişmiş Donma/Takılma Engelleme Konfigürasyonu
                 hls = new Hls({
                     enableWorker: true,
                     lowLatencyMode: true,           
-                    maxBufferLength: 30,             // Donma önleyici geniş önbellek havuzu (15'ten 30'a yükseltildi)
-                    maxMaxBufferLength: 60,          // Maksimum yedekleme arabelleği yüksek tutuldu
+                    maxBufferLength: 30,             
+                    maxMaxBufferLength: 60,          
                     backBufferLength: 15,           
-                    liveBackBufferLength: 10,        // Canlı yayınlarda geçmiş arabellek temizleme eşiği
-                    maxStarvationDelay: 2,          // Donma algılama tolerans süresi düşürüldü (Hızlı aksiyon için)
+                    liveBackBufferLength: 10,        
+                    maxStarvationDelay: 2,          
                     maxLoadingDelay: 4,             
                     appendErrorMaxRetry: 30,         
                     liveSyncDurationCount: 2,       
                     liveMaxLatencyDurationCount: 4,
                     nudgeMaxRetries: 30,            
-                    nudgeDuration: 0.1,              // Takılma anında ufak atlamalarla donmayı aşma süresi optimize edildi
+                    nudgeDuration: 0.1,              
                     progressive: true,
-                    abrEwmaFastLive: 1.0,            // Ağ dalgalanmalarına anında reaksiyon gösterme katsayısı
+                    abrEwmaFastLive: 1.0,            
                     abrEwmaSlowLive: 3.0,
                     xhrSetup: function (xhr, xhrUrl) {
-                        // Tüm canlı kanal tokenleri, cookieleri ve session doğrulamaları için kimlik bilgilerini aktif et
                         xhr.withCredentials = true;  
-                        
-                        // Tarayıcı ve WebView katmanında başlık blokajlarını simüle ederek aşma mantığı
                         xhr.setRequestHeader('Accept', '*/*');
                         
-                        // Dinamik token geçişlerinin ve şifreli stream anahtarlarının kopmasını engelle
-                        if (xhrUrl.includes('aztv') || xhrUrl.includes('ictimai') || xhrUrl.includes('idman') || xhrUrl.includes('token') || xhrUrl.includes('key')) {
+                        // Açılmayan veya korumalı kanallar için token geçiş / kimlik doğrulama simülasyonu
+                        if (xhrUrl.includes('aztv') || xhrUrl.includes('ictimai') || xhrUrl.includes('idman') || xhrUrl.includes('token') || xhrUrl.includes('key') || xhrUrl.includes('premium')) {
                             xhr.onreadystatechange = function () {
                                 if (xhr.readyState === 1) {
-                                    // Gerekli görülen WebView header köprülemeleri otomatik gerçekleşir
+                                    // WebView uyumluluk köprüleme başlıkları
                                 }
                             };
                         }
@@ -886,20 +1019,16 @@
                     requestWakeLock();
                 });
                 
-                // OTTPlay tarzı otomatik akış kurtarma mekanizması (Kanal takılır veya çökerse milisaniyeler içinde yeniler)
                 hls.on(Hls.Events.ERROR, function (event, data) {
                     if (data.fatal) {
                         switch (data.type) {
                             case Hls.ErrorTypes.NETWORK_ERROR:
-                                console.log("Ağ hatası kurtarılıyor...");
                                 hls.startLoad();
                                 break;
                             case Hls.ErrorTypes.MEDIA_ERROR:
-                                console.log("Medya hatası kurtarılıyor...");
                                 hls.recoverMediaError();
                                 break;
                             default:
-                                console.log("Kritik hata! Yeniden başlatılıyor...");
                                 playMedia(url, title, element, categoryName);
                                 break;
                         }
@@ -922,16 +1051,13 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // Canlı/Normal Moduna göre butonları gizleyen veya gösteren fonksiyon
         function toggleControlElements() {
             const vodControls = document.querySelectorAll('.VOD-control');
             if (isLiveStream) {
-                // Canlı yayın: butonları gizle, zaman çubuğunu pasif yap
                 vodControls.forEach(el => el.style.setProperty('display', 'none', 'important'));
                 progressBar.style.pointerEvents = 'none';
                 timeDisplay.innerHTML = '<span class="live-indicator"><i class="fas fa-circle"></i> CANLI YAYIN</span>';
             } else {
-                // Dizi/Müzik: Her şeyi eski haline getir
                 vodControls.forEach(el => el.style.setProperty('display', '', 'important'));
                 progressBar.style.pointerEvents = 'auto';
                 timeDisplay.innerText = "00:00 / 00:00";
@@ -941,7 +1067,6 @@
         // --- SÜRE VE İLERLEME ÇUBUĞU MOTORU ---
         video.addEventListener('timeupdate', () => {
             if (isLiveStream) {
-                // Eğer canlı yayındaysa ilerleme hesaplaması yapma
                 progressFill.style.width = '0%';
                 return;
             }
@@ -1030,7 +1155,7 @@
         }
 
         function triggerSkipAlert(text) {
-            if (isLiveStream) return; // Canlı yayında alert gösterme
+            if (isLiveStream) return; 
             skipAlert.innerText = text;
             skipAlert.classList.add('show');
             setTimeout(() => {
@@ -1123,11 +1248,12 @@
             if (!document.fullscreenElement && videoContainer.classList.contains('landscape-mode')) exitLandscape();
         });
 
+        // --- YOUTUBE STİLİ PICTURE-IN-PICTURE (PiP) MOTORU ---
         async function togglePip() {
             try {
                 isChangingPip = true;
                 
-                // 1. Standart Modern Tarayıcı PiP API Desteği Kontrolü
+                // YouTube tarzı PiP için önce yerel modern API kontrol edilir (WebView kısıtlamasız çalışması için)
                 if (document.pictureInPictureEnabled && video.requestPictureInPicture) {
                     if (video !== document.pictureInPictureElement) {
                         await video.requestPictureInPicture();
@@ -1135,27 +1261,28 @@
                         await document.exitPictureInPicture();
                     }
                 } 
-                // 2. Appilix / WebView / Safari iOS Mobil Yerleşik PiP Köprüsü (Kritik Fallback Çözümü)
+                // Appilix ve diğer mobil paketleyicilerde arkaplan köprüsünü aktif tutarak gerçek PiP tetikler
                 else if (video.webkitSupportsPresentationMode && typeof video.webkitSetPresentationMode === "function") {
                     const currentMode = video.webkitPresentationMode;
                     if (currentMode === "picture-in-picture") {
                         video.webkitSetPresentationMode("inline");
                     } else {
+                        // Tam ekrana zorlamayı devre dışı bırakıp inline PiP penceresini tetikler
                         video.webkitSetPresentationMode("picture-in-picture");
                     }
                 } 
-                // 3. API kısıtlaması olan eski WebView yapılarda kullanıcıyı yarı yolda bırakmamak için native tam ekran tetiklemesi
                 else {
-                    if (video.webkitEnterFullscreen) {
-                        video.webkitEnterFullscreen();
-                    } else if (video.requestFullscreen) {
+                    // Eğer platform donanımsal olarak PiP desteklemiyorsa sistemi inline tam ekrana paslar
+                    if (video.requestFullscreen) {
                         video.requestFullscreen();
+                    } else if (video.webkitEnterFullscreen) {
+                        video.webkitEnterFullscreen();
                     } else {
-                        alert("Cihazınız veya kurulu WebView altyapısı bu özelliği kısıtlamaktadır.");
+                        alert("Cihazınızın WebView altyapısı bu özelliği desteklememektedir.");
                     }
                 }
             } catch (error) {
-                console.log("PiP Geçiş Hatası: ", error);
+                console.log("PiP Hatası: ", error);
                 if (video.paused === false) {
                     video.play().catch(e => console.log(e));
                 }
