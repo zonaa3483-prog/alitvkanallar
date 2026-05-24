@@ -300,43 +300,19 @@
             justify-content: center;
         }
 
-        /* Canlı Yayın Canlı Yazısı Rozeti */
-        .live-badge-display {
-            display: none;
+        /* Canlı Yayın Badge Stili */
+        .live-indicator {
             color: #ff0055;
-            font-weight: 700;
-            font-size: 14px;
-            align-items: center;
-            gap: 6px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            background: rgba(0, 0, 0, 0.4);
-            padding: 4px 10px;
-            border-radius: 4px;
-        }
-        
-        .live-badge-display i {
-            font-size: 10px;
-            animation: blink 1.5s infinite;
-        }
-
-        @keyframes blink {
-            0% { opacity: 1; }
-            50% { opacity: 0.3; }
-            100% { opacity: 1; }
-        }
-
-        /* Canlı modundayken bazı kontrolleri gizle */
-        .video-container.is-live-stream .timeline-container,
-        .video-container.is-live-stream .center-btn:nth-child(1),
-        .video-container.is-live-stream .center-btn:nth-child(3),
-        .video-container.is-live-stream .control-btn[onclick="rewind()"],
-        .video-container.is-live-stream .control-btn[onclick="forward()"] {
-            display: none !important;
-        }
-
-        .video-container.is-live-stream .live-badge-display {
+            font-weight: bold;
+            font-size: 13px;
             display: flex;
+            align-items: center;
+            gap: 5px;
+            animation: blinker 1.5s linear infinite;
+        }
+
+        @keyframes blinker {
+            50% { opacity: 0.3; }
         }
 
         /* --- ANA İÇERİK ALANI --- */
@@ -585,14 +561,14 @@
         
         <div class="skip-alert" id="skipAlert">+10s</div>
 
-        <div class="center-controls">
-            <button class="center-btn" onclick="event.stopPropagation(); rewind();"><i class="fas fa-backward"></i></button>
+        <div class="center-controls" id="centerControls">
+            <button class="center-btn VOD-control" onclick="event.stopPropagation(); rewind();"><i class="fas fa-backward"></i></button>
             <button class="center-btn" id="centerPlayBtn" onclick="event.stopPropagation(); togglePlay();"><i class="fas fa-play"></i></button>
-            <button class="center-btn" onclick="event.stopPropagation(); forward();"><i class="fas fa-forward"></i></button>
+            <button class="center-btn VOD-control" onclick="event.stopPropagation(); forward();"><i class="fas fa-forward"></i></button>
         </div>
 
         <div class="video-controls" id="videoControls">
-            <div class="timeline-container" onclick="event.stopPropagation();">
+            <div class="timeline-container" id="timelineContainer" onclick="event.stopPropagation();">
                 <div class="seek-tooltip" id="seekTooltip">00:00</div>
                 <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)" onmousemove="showTooltip(event)" onmouseleave="hideTooltip()" ontouchmove="showTooltip(event)" ontouchend="hideTooltip()">
                     <div class="video-progress-fill" id="progressFill"></div>
@@ -603,9 +579,8 @@
             <div class="control-row" onclick="event.stopPropagation();">
                 <div class="control-group">
                     <button class="control-btn" onclick="togglePlay()" id="playBtn"><i class="fas fa-pause"></i></button>
-                    <button class="control-btn" onclick="rewind()"><i class="fas fa-undo"></i></button>
-                    <button class="control-btn" onclick="forward()"><i class="fas fa-redo"></i></button>
-                    <div class="live-badge-display" id="liveBadge"><i class="fas fa-circle"></i> Canlı</div>
+                    <button class="control-btn VOD-control" onclick="rewind()"><i class="fas fa-undo"></i></button>
+                    <button class="control-btn VOD-control" onclick="forward()"><i class="fas fa-redo"></i></button>
                 </div>
                 <div class="control-group">
                     <button class="control-btn" onclick="toggleRotate()" id="rotateBtn" title="Ekranı Çevir"><i class="fas fa-sync-alt"></i> Çevir</button>
@@ -652,8 +627,8 @@
         let hls = null;
         let controlsTimeout = null;
         let isChangingPip = false; 
-        let wakeLock = null; // Ekranın sönmesini önleme kilidi
-        let isLiveMode = false; // Canlı yayın takibi için yeni bayrak
+        let wakeLock = null; 
+        let isLiveStream = false; // Canlı yayın kontrol flag'i
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -666,6 +641,7 @@
         const mediaTitleOverlay = document.getElementById('mediaTitleOverlay');
         const seekTooltip = document.getElementById('seekTooltip');
         const skipAlert = document.getElementById('skipAlert');
+        const timelineContainer = document.getElementById('timelineContainer');
 
         // --- M3U PARSER ---
         async function fetchAndParseM3U() {
@@ -762,7 +738,7 @@
                     const listItem = document.createElement('div');
                     listItem.className = 'stream-list-item';
                     listItem.setAttribute('data-url', item.url);
-                    listItem.onclick = () => playMedia(item.url, item.title, listItem);
+                    listItem.onclick = () => playMedia(item.url, item.title, listItem, catName);
                     
                     const imgHTML = item.logo ? `<img src="${item.logo}" onerror="this.style.display='none'">` : '';
                     
@@ -790,7 +766,6 @@
             });
         }
 
-        // Canlı Arama Filtreleme Motoru
         function filterPlaylist() {
             const query = document.getElementById('searchInput').value.toLowerCase().trim();
             const accordionItems = document.querySelectorAll('.accordion-item');
@@ -821,7 +796,6 @@
             });
         }
 
-        // --- EKRANIN KAPANMASINI ENGELLEME MOTORU (WAKE LOCK) ---
         async function requestWakeLock() {
             try {
                 if ('wakeLock' in navigator) {
@@ -838,12 +812,23 @@
             }
         }
 
-        // --- IPTV OYNATMA MOTORU VE AKTİF SEÇİM IŞIĞI ---
-        function playMedia(url, title, element) {
+        // --- IPTV OYNATMA MOTORU VE OTTPLAY ENTEGRASYONU ---
+        function playMedia(url, title, element, categoryName) {
             if (hls) {
                 hls.destroy();
                 hls = null;
             }
+
+            // Kategori adına göre veya url yapısına göre canlı kontrolü (Müzik ve Dizi hariç her şey Canlı sayılır)
+            const lowerCat = categoryName ? categoryName.toLowerCase() : "";
+            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerCat.includes("vod") || url.includes(".mp4") || url.includes(".mkv")) {
+                isLiveStream = false;
+            } else {
+                isLiveStream = true; 
+            }
+
+            // Canlı ve VOD element görünümlerini ayarla
+            toggleControlElements();
 
             document.querySelectorAll('.stream-list-item').forEach(el => el.classList.remove('playing-active'));
             if(element) {
@@ -852,43 +837,54 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            // Canlı kanal kontrolü (AzTV, İctimai veya m3u8/ts uzantıları)
-            const lowerTitle = (title || "").toLowerCase();
-            const isLiveTitle = lowerTitle.includes("aztv") || lowerTitle.includes("ictimai") || lowerTitle.includes("İctimai");
-            const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || isLiveTitle;
+            const isHlsStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('mono.strm') || url.includes('atv') || url.includes('aztv');
             
-            if (isHlsStream) {
-                isLiveMode = true;
-                videoContainer.classList.add('is-live-stream');
-            } else {
-                isLiveMode = false;
-                videoContainer.classList.remove('is-live-stream');
-            }
-
             if (isHlsStream && Hls.isSupported()) {
+                // OTTPlay mantığı: Tokenli, yönlendirmeli ve katı CORS kuralları olan kanallar (AzTV, İctimai vb.) için gelişmiş konfigürasyon
                 hls = new Hls({
                     enableWorker: true,
                     lowLatencyMode: true,           
-                    maxBufferLength: 8,             
-                    maxMaxBufferLength: 20,         
+                    maxBufferLength: 15,             
+                    maxMaxBufferLength: 35,         
                     backBufferLength: 10,           
-                    maxStarvationDelay: 2,          
-                    maxLoadingDelay: 4,             
-                    appendErrorMaxRetry: 10,         
-                    liveSyncDurationCount: 2,       
-                    liveMaxLatencyDurationCount: 4,
-                    nudgeMaxRetries: 15,            
-                    nudgeDuration: 0.1,
-                    progressive: true
+                    maxStarvationDelay: 4,          
+                    maxLoadingDelay: 6,             
+                    appendErrorMaxRetry: 20,         
+                    liveSyncDurationCount: 3,       
+                    liveMaxLatencyDurationCount: 6,
+                    nudgeMaxRetries: 25,            
+                    nudgeDuration: 0.2,
+                    progressive: true,
+                    xhrSetup: function (xhr, url) {
+                        xhr.withCredentials = false; // CORS aşımı ve OTT stabilizasyonu için
+                    }
                 });
                 
                 hls.loadSource(url);
                 hls.attachMedia(video);
+                
                 hls.on(Hls.Events.MANIFEST_PARSED, function() {
                     video.play().catch(e => console.log(e));
                     requestWakeLock();
                 });
                 
+                // OTTPlay tarzı hata kurtarma mekanizması (Kanal takılırsa otomatik yeniler)
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                hls.destroy();
+                                break;
+                        }
+                    }
+                });
+
                 hls.on(Hls.Events.BUFFER_FLUSHING, function() {
                     hls.startLoad();
                 });
@@ -905,16 +901,31 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // --- %100 DAKİK SÜRE VE İLERLEME ÇUBUĞU MOTORU ---
-        video.addEventListener('timeupdate', () => {
-            // Video süresi Infinity veya canlı yayın modu aktifse doğrudan canlı göster
-            if (isLiveMode || !video.duration || !isFinite(video.duration) || video.duration <= 0) {
-                if(!videoContainer.classList.contains('is-live-stream')) {
-                    videoContainer.classList.add('is-live-stream');
-                }
-                timeDisplay.innerText = "Canlı Yayın";
-                progressFill.style.width = '0%';
+        // Canlı/Normal Moduna göre butonları gizleyen veya gösteren fonksiyon
+        function toggleControlElements() {
+            const vodControls = document.querySelectorAll('.VOD-control');
+            if (isLiveStream) {
+                // Canlı yayın: butonları gizle, zaman çubuğunu pasif yap
+                vodControls.forEach(el => el.style.setProperty('display', 'none', 'important'));
+                progressBar.style.pointerEvents = 'none';
+                timeDisplay.innerHTML = '<span class="live-indicator"><i class="fas fa-circle"></i> CANLI YAYIN</span>';
             } else {
+                // Dizi/Müzik: Her şeyi eski haline getir
+                vodControls.forEach(el => el.style.setProperty('display', '', 'important'));
+                progressBar.style.pointerEvents = 'auto';
+                timeDisplay.innerText = "00:00 / 00:00";
+            }
+        }
+
+        // --- SÜRE VE İLERLEME ÇUBUĞU MOTORU ---
+        video.addEventListener('timeupdate', () => {
+            if (isLiveStream) {
+                // Eğer canlı yayındaysa ilerleme hesaplaması yapma
+                progressFill.style.width = '0%';
+                return;
+            }
+
+            if (video.duration && isFinite(video.duration) && video.duration > 0) {
                 const currentSecs = Math.floor(video.currentTime);
                 const totalSecs = Math.floor(video.duration);
                 
@@ -924,10 +935,12 @@
                 timeDisplay.innerText = `${current} / ${total}`;
                 const percentage = (video.currentTime / video.duration) * 100;
                 progressFill.style.width = `${percentage}%`;
+            } else {
+                timeDisplay.innerText = "Yükleniyor...";
+                progressFill.style.width = '0%';
             }
         });
 
-        // Milisaniyelik yuvarlamaları engelleyen tam dakik zaman formatlayıcı
         function formatTime(totalSeconds, videoDuration) {
             if (isNaN(totalSeconds) || !isFinite(totalSeconds) || totalSeconds < 0) totalSeconds = 0;
             
@@ -948,9 +961,8 @@
             }
         }
 
-        // Xette (İlerleme çubuğu) üzerinde gezindikde saniyeleri gösteren fonksiyon
         function showTooltip(event) {
-            if (isLiveMode || !video.duration || !isFinite(video.duration)) return;
+            if (isLiveStream || !video.duration || !isFinite(video.duration)) return;
             const rect = progressBar.getBoundingClientRect();
             let clientX = event.clientX;
             
@@ -973,14 +985,14 @@
         }
 
         function seekVideo(event) {
-            if (isLiveMode || !video.duration || !isFinite(video.duration)) return;
+            if (isLiveStream || !video.duration || !isFinite(video.duration)) return;
             const rect = progressBar.getBoundingClientRect();
             const clickX = event.clientX - rect.left;
             const seekTime = (clickX / rect.width) * video.duration;
             video.currentTime = Math.floor(seekTime);
         }
 
-        // --- KONTROLLER VE GELİŞTİRİLMİŞ OYNAT/DURAKLAT TIKLAMA SİSTEMİ ---
+        // --- KONTROLLER VE OYNAT/DURAKLAT TIKLAMA SİSTEMİ ---
         function togglePlay() {
             if (video.paused) {
                 video.play().catch(e => console.log(e));
@@ -996,9 +1008,8 @@
             showControlsTemporarily();
         }
 
-        // İleri - Geri sarma uyarı yazısı tetikleyicisi
         function triggerSkipAlert(text) {
-            if (isLiveMode) return;
+            if (isLiveStream) return; // Canlı yayında alert gösterme
             skipAlert.innerText = text;
             skipAlert.classList.add('show');
             setTimeout(() => {
@@ -1007,25 +1018,23 @@
         }
 
         function forward() { 
-            if (isLiveMode) return;
+            if (isLiveStream) return;
             video.currentTime += 10; 
             showControlsTemporarily(); 
             triggerSkipAlert("+10s");
         }
         
         function rewind() { 
-            if (isLiveMode) return;
+            if (isLiveStream) return;
             video.currentTime -= 10; 
             showControlsTemporarily(); 
             triggerSkipAlert("-10s");
         }
 
-        // İstediğin video gövdesi tıklama kuralı güncellendi
         videoContainer.addEventListener('click', function(e) {
             const isClickOnControls = videoControls.contains(e.target) || e.target.closest('.center-btn') || e.target.closest('#landscapeBackBtn');
             
             if (!isClickOnControls) {
-                // Boş alanlara basıldığında video kapanmaz, sadece kontroller gelir
                 showControlsTemporarily();
             }
         });
@@ -1052,7 +1061,6 @@
             else exitLandscape();
         }
 
-        // Appilix ve Webview uyumluluğu için güçlendirilmiş yön kilitleme motoru
         function enterLandscape() {
             videoContainer.classList.add('landscape-mode');
             document.body.style.overflow = 'hidden';
@@ -1138,7 +1146,6 @@
             }
         }
 
-        // Uygulama arka plana atıldığında veya sekme değiştiğinde kilit durumunu yönet
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && !video.paused) {
                 requestWakeLock();
