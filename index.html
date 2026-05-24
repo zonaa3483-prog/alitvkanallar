@@ -68,7 +68,6 @@
             letter-spacing: 0.5px;
         }
 
-        /* Yeni Eklenen Qurucu Başlığı Stili */
         .ceo-header-link {
             font-size: 12px;
             font-weight: 600;
@@ -123,6 +122,7 @@
             width: 100%;
             height: 100%;
             object-fit: contain;
+            transition: opacity 0.2s ease-in-out;
         }
 
         .media-title-overlay {
@@ -350,7 +350,7 @@
             flex-direction: column;
             overflow-y: auto;
             padding: 15px;
-            padding-bottom: 20px; /* Alt kısımdan footer kaldırıldığı için padding dengelendi */
+            padding-bottom: 20px;
         }
 
         .section-header-row {
@@ -629,7 +629,11 @@
         const timelineContainer = document.getElementById('timelineContainer');
         const muteBtn = document.getElementById('muteBtn');
 
-        // --- Geliştirilmiş Kesintisiz WakeLock Sistemi ---
+        // Canlı yayınlarda eski kare takılmasını önleme tetikleyicisi
+        video.addEventListener('playing', () => {
+            video.style.opacity = "1";
+        });
+
         async function requestWakeLock() {
             try {
                 if ('wakeLock' in navigator) {
@@ -644,10 +648,8 @@
             }
         }
 
-        function releaseWakeLock() {
-        }
+        function releaseWakeLock() {}
 
-        // --- M3U PARSER ---
         async function fetchAndParseM3U() {
             try {
                 const response = await fetch(INTERNAL_M3U_URL);
@@ -809,7 +811,7 @@
             }
         }
 
-        // --- STATE KORUMA VE REDİRECT (CEO Hafıza Sistemi) ---
+        // --- STATE KORUMA VE REDIRECT (Geliştirilmiş Kesintisiz Dönüş Sistemi) ---
         function saveStateAndRedirect() {
             const state = {
                 url: video.getAttribute('data-current-url') || '',
@@ -843,11 +845,13 @@
                     });
                     
                     playMedia(state.url, state.title, null, state.category);
-                    if (!state.isLive) {
-                        video.addEventListener('loadedmetadata', function onTimeInit() {
+                    
+                    if (!state.isLive && state.time > 0) {
+                        const onTimeInit = () => {
                             video.currentTime = state.time;
                             video.removeEventListener('loadedmetadata', onTimeInit);
-                        });
+                        };
+                        video.addEventListener('loadedmetadata', onTimeInit);
                     }
                 }
                 if (state.theme === 'dark') {
@@ -859,9 +863,22 @@
             localStorage.removeItem('elitv_state'); 
         }
 
-        // --- IPTV OYNATMA MOTORU ---
+        // --- IPTV OYNATMA MOTORU (AzTV ve Canlı Kararma Optimizasyonlu) ---
         function playMedia(url, title, element, categoryName) {
             video.pause();
+            
+            // Canlı yayın geçişlerinde donuk ekran kalmaması için opaklığı sıfırlıyoruz
+            const lowerCat = categoryName ? categoryName.toLowerCase() : "";
+            const lowerUrl = url.toLowerCase();
+            
+            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerCat.includes("vod") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv") || lowerCat.includes("kino") || lowerCat.includes("film")) {
+                isLiveStream = false;
+                video.style.opacity = "1"; // VOD içeriklerde direkt gösterilebilir
+            } else {
+                isLiveStream = true; 
+                video.style.opacity = "0"; // Yeni canlı akış yüklenene kadar ekranı temiz tut (Siyah kalır)
+            }
+
             video.src = "";
             video.removeAttribute("src");
             progressFill.style.width = '0%';
@@ -873,15 +890,6 @@
 
             video.setAttribute('data-current-url', url);
             video.setAttribute('data-current-cat', categoryName || '');
-
-            const lowerCat = categoryName ? categoryName.toLowerCase() : "";
-            const lowerUrl = url.toLowerCase();
-            
-            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerCat.includes("vod") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv")) {
-                isLiveStream = false;
-            } else {
-                isLiveStream = true; 
-            }
 
             toggleControlElements();
 
@@ -896,6 +904,7 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
+            // AzTV, a2 ve yerel şifreli/katı HLS kanalları için güçlendirilmiş hls.js ayarları
             if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = url;
                 video.load();
@@ -926,18 +935,21 @@
                 maxMaxBufferLength: 60,          
                 backBufferLength: 15,           
                 liveBackBufferLength: 10,        
-                maxStarvationDelay: 4,          
-                maxLoadingDelay: 4,             
-                appendErrorMaxRetry: 100,         
+                maxStarvationDelay: 8,          
+                maxLoadingDelay: 8,             
+                appendErrorMaxRetry: 200,         
                 liveSyncDurationCount: 3,       
                 liveMaxLatencyDurationCount: 5,
-                nudgeMaxRetries: 50,            
+                nudgeMaxRetries: 80,            
                 nudgeDuration: 0.1,              
                 progressive: true,
                 abrEwmaFastLive: 1.0,            
                 abrEwmaSlowLive: 3.0,
                 forceKeyFrameOnDiscontinuity: true,
                 maxAudioFramesDrift: 1,
+                // Kodek uyumsuzlukları gösteren yerli kanallar (AzTV/a2 vb.) için hata tolerans modları
+                defaultAudioCodec: 'mp4a.40.2', 
+                ignoreDevicePixelRatio: true,
                 xhrSetup: function (xhr, xhrUrl) {
                     xhr.withCredentials = false;  
                     if (xhr.overrideMimeType) {
@@ -964,6 +976,7 @@
                             hls.recoverMediaError();
                             break;
                         default:
+                            // Eğer hls.js tamamen çökerse native korumaya geçiş yap
                             video.src = url;
                             video.load();
                             video.play().catch(e => console.log(e));
@@ -990,7 +1003,6 @@
             }
         }
 
-        // --- SÜRE VE İLERLEME ÇUBUĞU MOTORU ---
         video.addEventListener('timeupdate', () => {
             if (isLiveStream) {
                 progressFill.style.width = '0%';
