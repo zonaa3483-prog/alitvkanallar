@@ -35,28 +35,21 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* PC VE TABLETTE TELEFON GÖRÜNÜMÜNÜ ZORLAMA CSS */
         body {
-            background-color: #1a1a1a;
+            background-color: #555; /* PC/Tabletlerde arka plan boşluğu */
             color: var(--text-color);
             overflow-x: hidden;
             display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            transition: background-color 0.3s, color 0.3s;
-        }
-
-        .phone-wrapper {
-            width: 100%;
-            max-width: 480px;
-            height: 100vh;
-            background-color: var(--bg-color);
-            display: flex;
             flex-direction: column;
+            height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
+            
+            /* Cihaz Ne Olursa Olsun Telefon Gibi Açılma Zorlaması */
+            max-width: 480px;
+            margin: 0 auto;
             position: relative;
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            overflow: hidden;
+            background-color: var(--bg-color);
         }
 
         /* --- ÜST BAR (BAŞLIK & TEMA) --- */
@@ -130,6 +123,7 @@
             height: 100vh;
             aspect-ratio: auto;
             z-index: 9999;
+            max-width: none !important;
         }
 
         video {
@@ -242,6 +236,7 @@
             white-space: nowrap;
             cursor: pointer;
             user-select: none;
+            padding: 2px 4px;
         }
 
         .seek-tooltip {
@@ -537,108 +532,102 @@
 </head>
 <body>
 
-    <div class="phone-wrapper">
-        <div class="top-header-bar">
-            <div class="app-title-container">
-                <div class="app-title"><i class="fas fa-play-circle"></i> ƏLİ TV</div>
-                <div class="ceo-header-link" onclick="saveStateAndRedirect()">
-                    <i class="fas fa-user-shield"></i> Qurucu: Əli Məhərrəmov
-                </div>
-            </div>
-            <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn">
-                <i class="fas fa-moon"></i> Gecə
-            </button>
-        </div>
-
-        <div class="video-container" id="videoContainer">
-            <div class="media-title-overlay" id="mediaTitleOverlay">Oynatılan Yayın Seçilmedi</div>
-
-            <button class="landscape-back-btn" id="landscapeBackBtn" onclick="event.stopPropagation(); exitLandscape();" title="Geri Dön">
-                <i class="fas fa-arrow-left"></i>
-            </button>
-
-            <video id="mainPlayer" playsinline></video>
-            
-            <div class="skip-alert" id="skipAlert">+10s</div>
-
-            <div class="center-controls" id="centerControls">
-                <button class="center-btn VOD-control" onclick="event.stopPropagation(); rewind();"><i class="fas fa-backward"></i></button>
-                <button class="center-btn" id="centerPlayBtn" onclick="event.stopPropagation(); togglePlay();"><i class="fas fa-play"></i></button>
-                <button class="center-btn VOD-control" onclick="event.stopPropagation(); forward();"><i class="fas fa-forward"></i></button>
-            </div>
-
-            <div class="video-controls" id="videoControls">
-                <div class="control-row" onclick="event.stopPropagation();">
-                    <div class="control-group">
-                        <button class="control-btn" onclick="togglePlay()" id="playBtn"><i class="fas fa-pause"></i></button>
-                        <button class="control-btn VOD-control" onclick="rewind()"><i class="fas fa-undo"></i></button>
-                        <button class="control-btn VOD-control" onclick="forward()"><i class="fas fa-redo"></i></button>
-                        
-                        <div class="volume-container">
-                            <button class="control-btn" onclick="toggleMute()" id="muteBtn" style="padding: 5px 2px; font-size: 16px;">
-                                <i class="fas fa-volume-up"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="control-group">
-                        <button class="control-btn" onclick="toggleRotate()" id="rotateBtn" title="Ekranı Çevir"><i class="fas fa-sync-alt"></i></button>
-                        <button class="control-btn" onclick="togglePip()" id="pipBtn" title="PiP Modu"><i class="fas fa-compress"></i></button>
-                        <button class="control-btn" onclick="toggleFullscreen()" title="Tam Ekran"><i class="fas fa-expand"></i></button>
-                    </div>
-                </div>
-
-                <div class="timeline-container" id="timelineContainer" onclick="event.stopPropagation();">
-                    <div class="seek-tooltip" id="seekTooltip">00:00</div>
-                    <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)" onmousemove="showTooltip(event)" onmouseleave="hideTooltip()" ontouchmove="showTooltip(event)" ontouchend="hideTooltip()">
-                        <div class="video-progress-fill" id="progressFill"></div>
-                    </div>
-                    <div class="time-display" id="timeDisplay" onclick="toggleTimeMode()">00:00 / 00:00</div>
-                </div>
+    <div class="top-header-bar">
+        <div class="app-title-container">
+            <div class="app-title"><i class="fas fa-play-circle"></i> ƏLİ TV</div>
+            <div class="ceo-header-link" onclick="saveStateAndRedirect()">
+                <i class="fas fa-user-shield"></i> Qurucu: Əli Məhərrəmov
             </div>
         </div>
+        <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn">
+            <i class="fas fa-moon"></i> Gecə
+        </button>
+    </div>
 
-        <div class="content-area">
-            <div class="section-header-row">
-                <div class="section-title">
-                    <i class="fas fa-film"></i> Canlı Tvlər və Kinolar
+    <div class="video-container" id="videoContainer">
+        <div class="media-title-overlay" id="mediaTitleOverlay">Oynatılan Yayın Seçilmedi</div>
+
+        <button class="landscape-back-btn" id="landscapeBackBtn" onclick="event.stopPropagation(); exitLandscape();" title="Geri Dön">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+
+        <!-- Yerel kanallarda CORS/Giriş problemlerini ezmek için crossOrigin eklendi -->
+        <video id="mainPlayer" playsinline crossorigin="anonymous"></video>
+        
+        <div class="skip-alert" id="skipAlert">+10s</div>
+
+        <div class="center-controls" id="centerControls">
+            <button class="center-btn VOD-control" onclick="event.stopPropagation(); rewind();"><i class="fas fa-backward"></i></button>
+            <button class="center-btn" id="centerPlayBtn" onclick="event.stopPropagation(); togglePlay();"><i class="fas fa-play"></i></button>
+            <button class="center-btn VOD-control" onclick="event.stopPropagation(); forward();"><i class="fas fa-forward"></i></button>
+        </div>
+
+        <div class="video-controls" id="videoControls">
+            <div class="control-row" onclick="event.stopPropagation();">
+                <div class="control-group">
+                    <button class="control-btn" onclick="togglePlay()" id="playBtn"><i class="fas fa-pause"></i></button>
+                    <button class="control-btn VOD-control" onclick="rewind()"><i class="fas fa-undo"></i></button>
+                    <button class="control-btn VOD-control" onclick="forward()"><i class="fas fa-redo"></i></button>
+                    
+                    <div class="volume-container">
+                        <button class="control-btn" onclick="toggleMute()" id="muteBtn" style="padding: 5px 2px; font-size: 16px;">
+                            <i class="fas fa-volume-up"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="search-container" id="searchBoxContainer" style="display: none;">
-                    <i class="fas fa-search"></i>
-                    <input type="text" class="search-input" id="searchInput" placeholder="Axtar..." oninput="filterPlaylist()">
+                <div class="control-group">
+                    <button class="control-btn" onclick="toggleRotate()" id="rotateBtn" title="Ekranı Çevir"><i class="fas fa-sync-alt"></i></button>
+                    <button class="control-btn" onclick="togglePip()" id="pipBtn" title="PiP Modu"><i class="fas fa-compress"></i></button>
+                    <button class="control-btn" onclick="toggleFullscreen()" title="Tam Ekran"><i class="fas fa-expand"></i></button>
                 </div>
             </div>
 
-            <div id="statusLayout" class="status-msg">
-                <i class="fas fa-spinner fa-spin"></i>
-                <span>Yüklənir...</span>
+            <div class="timeline-container" id="timelineContainer" onclick="event.stopPropagation();">
+                <div class="seek-tooltip" id="seekTooltip">00:00</div>
+                <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)" onmousemove="showTooltip(event)" onmouseleave="hideTooltip()" ontouchmove="showTooltip(event)" ontouchend="hideTooltip()">
+                    <div class="video-progress-fill" id="progressFill"></div>
+                </div>
+                <!-- YouTube usulü sayac tıklaması için fonksiyon eklendi -->
+                <div class="time-display" id="timeDisplay" onclick="toggleTimeMode()">00:00 / 00:00</div>
             </div>
+        </div>
+    </div>
 
-            <div id="mainLayout" style="display: none;">
-                <div class="category-accordion" id="accordionContainer"></div>
+    <div class="content-area">
+        <div class="section-header-row">
+            <div class="section-title">
+                <i class="fas fa-film"></i> Canlı Tvlər və Kinolar
             </div>
+            <div class="search-container" id="searchBoxContainer" style="display: none;">
+                <i class="fas fa-search"></i>
+                <input type="text" class="search-input" id="searchInput" placeholder="Axtar..." oninput="filterPlaylist()">
+            </div>
+        </div>
+
+        <div id="statusLayout" class="status-msg">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Yüklənir...</span>
+        </div>
+
+        <div id="mainLayout" style="display: none;">
+            <div class="category-accordion" id="accordionContainer"></div>
         </div>
     </div>
 
     <script>
         const INTERNAL_M3U_URL = "https://raw.githubusercontent.com/zonaa3483-prog/eli-iptv-siyahi/refs/heads/main/alimtv.m3u"; 
 
-        // OTTPLAYER MANTIĞI İÇİN MERKEZİ CORS VE PROXY HAVUZU
-        const CORS_PROXIES = [
-            "", 
-            "https://api.allorigins.win/raw?url=",
-            "https://corsproxy.io/?",
-            "https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?container=focus&refresh=600&url="
-        ];
+        const PLAYLIST_DATA = {
+            series: {}
+        };
 
-        const PLAYLIST_DATA = { series: {} };
         let currentTheme = 'light'; 
         let hls = null;
         let controlsTimeout = null;
         let isChangingPip = false; 
         let wakeLock = null; 
         let isLiveStream = false;
-        let timeMode = 'normal'; // normal veya remaining (kalan süre)
-        let proxyIndex = 0;
+        let timeMode = 'normal'; // 'normal' veya 'remaining' (YouTube stili kalan süre)
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -654,16 +643,25 @@
         const timelineContainer = document.getElementById('timelineContainer');
         const muteBtn = document.getElementById('muteBtn');
 
-        video.addEventListener('playing', () => { video.style.opacity = "1"; });
+        video.addEventListener('playing', () => {
+            video.style.opacity = "1";
+        });
 
         async function requestWakeLock() {
             try {
                 if ('wakeLock' in navigator) {
-                    if (wakeLock !== null) { await wakeLock.release(); wakeLock = null; }
+                    if (wakeLock !== null) {
+                        await wakeLock.release();
+                        wakeLock = null;
+                    }
                     wakeLock = await navigator.wakeLock.request('screen');
                 }
-            } catch (err) { console.log(`Wake Lock hatası: ${err.message}`); }
+            } catch (err) {
+                console.log(`Wake Lock hatası: ${err.message}`);
+            }
         }
+
+        function releaseWakeLock() {}
 
         async function fetchAndParseM3U() {
             try {
@@ -676,29 +674,41 @@
 
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i].trim();
+                    
                     if (line.startsWith('#EXTINF:')) {
                         const groupMatch = line.match(/group-title="([^"]+)"/);
                         const logoMatch = line.match(/tvg-logo="([^"]+)"/);
+                        
                         const commaIndex = line.indexOf(',');
                         const title = commaIndex !== -1 ? line.substring(commaIndex + 1).trim() : "Bilinmeyen Başlık";
+                        
                         const group = groupMatch ? groupMatch[1] : "Diğer Listeler";
-                        currentItemInfo = { title, logo: logoMatch ? logoMatch[1] : "", group };
+                        const logo = logoMatch ? logoMatch[1] : "";
+
+                        currentItemInfo = { title, logo, group };
                     } else if (line.startsWith('http') && currentItemInfo) {
+                        const url = line;
+
                         if (!PLAYLIST_DATA.series[currentItemInfo.group]) {
                             PLAYLIST_DATA.series[currentItemInfo.group] = [];
                         }
+
                         PLAYLIST_DATA.series[currentItemInfo.group].push({
                             title: currentItemInfo.title,
                             logo: currentItemInfo.logo,
-                            url: line
+                            url: url
                         });
+
                         currentItemInfo = null;
                     }
                 }
+
                 for (const g in PLAYLIST_DATA.series) {
                     if (PLAYLIST_DATA.series[g].length === 0) delete PLAYLIST_DATA.series[g];
                 }
+
                 initUI();
+
             } catch (error) {
                 document.getElementById('statusLayout').innerHTML = `
                     <i class="fas fa-exclamation-triangle"></i>
@@ -715,6 +725,7 @@
             document.getElementById('statusLayout').style.display = 'none';
             document.getElementById('mainLayout').style.display = 'block';
             document.getElementById('searchBoxContainer').style.display = 'block';
+            
             renderAccordion();
             restoreAppState();
         }
@@ -722,70 +733,105 @@
         function renderAccordion() {
             const container = document.getElementById('accordionContainer');
             container.innerHTML = '';
-            Object.keys(PLAYLIST_DATA.series).forEach((catName) => {
+            
+            const categories = Object.keys(PLAYLIST_DATA.series);
+
+            categories.forEach((catName) => {
                 const items = PLAYLIST_DATA.series[catName];
+                
                 const accordionItem = document.createElement('div');
                 accordionItem.className = 'accordion-item'; 
                 accordionItem.setAttribute('data-catname', catName);
                 
-                accordionItem.innerHTML = `
-                    <div class="accordion-header">
-                        <div><span class="cat-text">${catName}</span> <span class="count-badge">${items.length}</span></div>
-                        <i class="fas fa-chevron-down"></i>
-                    </div>
-                    <div class="accordion-content"><div class="stream-list"></div></div>
+                const header = document.createElement('div');
+                header.className = 'accordion-header';
+                header.innerHTML = `
+                    <div><span class="cat-text">${catName}</span> <span class="count-badge">${items.length}</span></div>
+                    <i class="fas fa-chevron-down"></i>
                 `;
                 
-                const streamList = accordionItem.querySelector('.stream-list');
+                const content = document.createElement('div');
+                content.className = 'accordion-content';
+                
+                const streamList = document.createElement('div');
+                streamList.className = 'stream-list';
+                
                 items.forEach(item => {
                     const listItem = document.createElement('div');
                     listItem.className = 'stream-list-item';
                     listItem.setAttribute('data-url', item.url);
                     listItem.onclick = () => playMedia(item.url, item.title, listItem, catName);
-                    listItem.innerHTML = `<div class="stream-details"><div class="stream-name">${item.title}</div></div>`;
+                    
+                    listItem.innerHTML = `
+                        <div class="stream-details">
+                            <div class="stream-name">${item.title}</div>
+                        </div>
+                    `;
                     streamList.appendChild(listItem);
                 });
                 
-                accordionItem.querySelector('.accordion-header').onclick = () => {
+                content.appendChild(streamList);
+                accordionItem.appendChild(header);
+                accordionItem.appendChild(content);
+                
+                header.onclick = () => {
                     accordionItem.classList.toggle('active');
                 };
+                
                 container.appendChild(accordionItem);
             });
         }
 
         function filterPlaylist() {
             const query = document.getElementById('searchInput').value.toLowerCase().trim();
-            document.querySelectorAll('.accordion-item').forEach(item => {
+            const accordionItems = document.querySelectorAll('.accordion-item');
+
+            accordionItems.forEach(item => {
                 const catText = item.querySelector('.cat-text').innerText.toLowerCase();
+                const listItems = item.querySelectorAll('.stream-list-item');
                 let matchCount = 0;
-                item.querySelectorAll('.stream-list-item').forEach(stream => {
+
+                listItems.forEach(stream => {
                     const streamName = stream.querySelector('.stream-name').innerText.toLowerCase();
                     if (streamName.includes(query) || catText.includes(query)) {
                         stream.classList.remove('hidden-by-search');
                         matchCount++;
-                    } else { stream.classList.add('hidden-by-search'); }
+                    } else {
+                        stream.classList.add('hidden-by-search');
+                    }
                 });
+
                 if (matchCount > 0 || query === '') {
                     item.classList.remove('hidden-by-search');
-                    if (query !== '') item.classList.add('active');
-                } else { item.classList.add('hidden-by-search'); }
+                    if (query !== '') {
+                        item.classList.add('active');
+                    }
+                } else {
+                    item.classList.add('hidden-by-search');
+                }
             });
         }
 
         function toggleMute() {
-            video.muted = !video.muted;
-            video.volume = video.muted ? 0 : 1;
-            muteBtn.innerHTML = video.muted ? '<i class="fas fa-volume-mute"></i>' : '<i class="fas fa-volume-up"></i>';
+            if (video.muted) {
+                video.muted = false;
+                video.volume = 1;
+                muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+            } else {
+                video.muted = true;
+                video.volume = 0;
+                muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+            }
         }
 
-        // YOUTUBE TARZI SAYAÇ DEĞİŞTİRME FONKSİYONU
+        // --- YouTube Sayacı Stil Değişimi ---
         function toggleTimeMode() {
-            if(isLiveStream) return;
+            if (isLiveStream) return;
             timeMode = (timeMode === 'normal') ? 'remaining' : 'normal';
-            video.dispatchEvent(new Event('timeupdate'));
+            triggerTimeUpdate();
         }
 
-        // KESİNTİSİZ DEVAM ETME SİSTEMİ
+        // --- STATE KORUMA VE REDIRECT (Geliştirilmiş Kesintisiz Dönüş Sistemi) ---
         function saveStateAndRedirect() {
             const state = {
                 url: video.getAttribute('data-current-url') || '',
@@ -793,11 +839,20 @@
                 category: video.getAttribute('data-current-cat') || '',
                 time: video.currentTime || 0,
                 isLive: isLiveStream,
-                theme: currentTheme,
-                timestamp: Date.now()
+                theme: currentTheme
             };
+            // LocalStorage yedeklemesi
             localStorage.setItem('elitv_state', JSON.stringify(state));
-            window.open('https://elimeherremov.taplink.ws/', '_blank');
+            
+            // Çıkış yaparken video ve müziklerin durmasını tamamen ENGELLİYORUZ.
+            // Arka planda çalmaya zorlamak için PiP moduna geçirmeyi deniyoruz.
+            if (!isLiveStream && document.pictureInPictureEnabled && video.requestPictureInPicture) {
+                video.requestPictureInPicture().finally(() => {
+                    window.location.href = 'https://elimeherremov.taplink.ws/';
+                });
+            } else {
+                window.location.href = 'https://elimeherremov.taplink.ws/';
+            }
         }
 
         function restoreAppState() {
@@ -806,37 +861,49 @@
             try {
                 const state = JSON.parse(saved);
                 if (state.url) {
-                    document.querySelectorAll('.accordion-item').forEach(item => {
+                    const accItems = document.querySelectorAll('.accordion-item');
+                    accItems.forEach(item => {
                         if (item.getAttribute('data-catname') === state.category) {
                             item.classList.add('active');
-                            item.querySelectorAll('.stream-list-item').forEach(str => {
-                                if (str.getAttribute('data-url') === state.url) str.classList.add('playing-active');
+                            const streams = item.querySelectorAll('.stream-list-item');
+                            streams.forEach(str => {
+                                if (str.getAttribute('data-url') === state.url) {
+                                    str.classList.add('playing-active');
+                                }
                             });
                         }
                     });
+                    
                     playMedia(state.url, state.title, null, state.category);
+                    
                     if (!state.isLive && state.time > 0) {
                         const onTimeInit = () => {
                             video.currentTime = state.time;
+                            video.play().catch(e => console.log(e));
                             video.removeEventListener('loadedmetadata', onTimeInit);
                         };
                         video.addEventListener('loadedmetadata', onTimeInit);
                     }
                 }
-                if (state.theme === 'dark') toggleTheme();
-            } catch(e) { console.log(e); }
+                if (state.theme === 'dark') {
+                    toggleTheme();
+                }
+            } catch(e) {
+                console.log("State geri yükleme hatası", e);
+            }
+            localStorage.removeItem('elitv_state'); 
         }
 
-        // OTTPLAYER VE CORS ENGELİNİ AŞAN GELİŞTİRİLMİŞ OYNATICI MOTORU
+        // --- IPTV OYNATMA MOTORU (İctimai TV, AzTV ve Canlı Kararma Optimizasyonlu Güçlendirilmiş Yapı) ---
         function playMedia(url, title, element, categoryName) {
             video.pause();
-            proxyIndex = 0; 
+            
             const lowerCat = categoryName ? categoryName.toLowerCase() : "";
             const lowerUrl = url.toLowerCase();
             
-            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerCat.includes("vod") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv") || lowerCat.includes("kino") || lowerCat.includes("film")) {
+            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv") || lowerCat.includes("kino") || lowerCat.includes("film")) {
                 isLiveStream = false;
-                video.style.opacity = "1";
+                video.style.opacity = "1"; 
             } else {
                 isLiveStream = true; 
                 video.style.opacity = "0"; 
@@ -845,62 +912,117 @@
             video.src = "";
             video.removeAttribute("src");
             progressFill.style.width = '0%';
-            if (hls) { hls.destroy(); hls = null; }
+            
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
 
             video.setAttribute('data-current-url', url);
             video.setAttribute('data-current-cat', categoryName || '');
+
             toggleControlElements();
 
             document.querySelectorAll('.stream-list-item').forEach(el => el.classList.remove('playing-active'));
-            if(element) element.classList.add('playing-active');
+            
+            if(element) {
+                element.classList.add('playing-active');
+            } else {
+                const targetElement = document.querySelector(`.stream-list-item[data-url="${url}"]`);
+                if(targetElement) targetElement.classList.add('playing-active');
+            }
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
-            buildStreamingEngine(url);
+
+            // Güçlendirilmiş HLS.js ve Native Player kombinasyonu (İctimai TV için tam koruma)
+            if (Hls.isSupported()) {
+                initHlsJs(url, title, element, categoryName);
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.load();
+                video.play().catch(e => console.log("Native oynatma hatası:", e));
+                requestWakeLock();
+            } else {
+                video.src = url;
+                video.load();
+                video.play().catch(e => console.log(e));
+                requestWakeLock();
+            }
 
             playBtn.innerHTML = '<i class="fas fa-pause"></i>';
             centerPlayBtn.innerHTML = '<i class="fas fa-pause"></i>';
             showControlsTemporarily();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function buildStreamingEngine(targetUrl) {
-            let processedUrl = targetUrl;
-            if(proxyIndex > 0 && proxyIndex < CORS_PROXIES.length) {
-                processedUrl = CORS_PROXIES[proxyIndex] + encodeURIComponent(targetUrl);
-            }
-
-            if (Hls.isSupported()) {
-                if(hls) hls.destroy();
-                hls = new Hls({
-                    enableWorker: true,
-                    lowLatencyMode: true,
-                    maxBufferLength: 30,
-                    appendErrorMaxRetry: 50,
-                    progressive: true,
-                    forceKeyFrameOnDiscontinuity: true
+        function initHlsJs(url, title, element, categoryName) {
+            hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true,           
+                maxBufferLength: 30,             
+                maxMaxBufferLength: 60,          
+                backBufferLength: 15,           
+                liveBackBufferLength: 10,        
+                maxStarvationDelay: 12,          
+                maxLoadingDelay: 15,             
+                appendErrorMaxRetry: 500,         
+                liveSyncDurationCount: 3,       
+                liveMaxLatencyDurationCount: 5,
+                nudgeMaxRetries: 100,            
+                nudgeDuration: 0.2,              
+                progressive: true,
+                abrEwmaFastLive: 1.0,            
+                abrEwmaSlowLive: 3.0,
+                forceKeyFrameOnDiscontinuity: true,
+                maxAudioFramesDrift: 2,
+                defaultAudioCodec: 'mp4a.40.2', 
+                ignoreDevicePixelRatio: true,
+                manifestLoadingMaxRetry: 5,
+                manifestLoadingRetryDelay: 1000,
+                xhrSetup: function (xhr, xhrUrl) {
+                    xhr.withCredentials = false;  
+                    if (xhr.overrideMimeType) {
+                        xhr.overrideMimeType("application/vnd.apple.mpegurl");
+                    }
+                }
+            });
+            
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                video.play().catch(e => {
+                    // Tarayıcı otomatik oynatma engellerse sessize alıp zorla oynatıyoruz
+                    video.muted = true;
+                    video.play().catch(err => console.log("Zorlama başarısız:", err));
                 });
-                hls.loadSource(processedUrl);
-                hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(e=>console.log(e)); requestWakeLock(); });
-                hls.on(Hls.Events.ERROR, (event, data) => {
-                    if (data.fatal) {
-                        if(proxyIndex < CORS_PROXIES.length - 1) {
-                            proxyIndex++;
-                            buildStreamingEngine(targetUrl);
-                        } else {
+                requestWakeLock();
+            });
+            
+            hls.on(Hls.Events.ERROR, function (event, data) {
+                if (data.fatal) {
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.log("Ağ hatası, yeniden deneniyor...");
+                            hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.log("Medya uyumsuzluğu, kurtarılıyor...");
                             hls.recoverMediaError();
-                        }
+                            break;
+                        default:
+                            // Tamamen kilitlenme durumunda native src metoduna geri düş
+                            video.src = url;
+                            video.load();
+                            video.play().catch(e => console.log(e));
+                            break;
                     }
-                });
-            } else {
-                video.src = processedUrl;
-                video.load();
-                video.play().catch(() => {
-                    if(proxyIndex < CORS_PROXIES.length - 1) {
-                        proxyIndex++;
-                        buildStreamingEngine(targetUrl);
-                    }
-                });
-            }
+                }
+            });
+
+            hls.on(Hls.Events.BUFFER_FLUSHING, function() {
+                hls.startLoad();
+            });
         }
 
         function toggleControlElements() {
@@ -916,120 +1038,252 @@
             }
         }
 
-        video.addEventListener('timeupdate', () => {
-            if (isLiveStream) return;
+        video.addEventListener('timeupdate', triggerTimeUpdate);
+
+        function triggerTimeUpdate() {
+            if (isLiveStream) {
+                progressFill.style.width = '0%';
+                return;
+            }
+
             if (video.duration && isFinite(video.duration) && video.duration > 0) {
                 const currentSecs = Math.floor(video.currentTime);
                 const totalSecs = Math.floor(video.duration);
                 
-                let timeText = "";
-                if(timeMode === 'normal') {
-                    timeText = `${formatTime(currentSecs, totalSecs)} / ${formatTime(totalSecs, totalSecs)}`;
-                } else {
-                    let remainingSecs = totalSecs - currentSecs;
-                    timeText = `${formatTime(currentSecs, totalSecs)} / -${formatTime(remainingSecs, totalSecs)}`;
-                }
+                const current = formatTime(currentSecs, totalSecs);
+                const total = formatTime(totalSecs, totalSecs);
                 
-                timeDisplay.innerText = timeText;
-                progressFill.style.width = `${(video.currentTime / video.duration) * 100}%`;
+                if (timeMode === 'normal') {
+                    timeDisplay.innerText = `${current} / ${total}`;
+                } else {
+                    // YouTube Stili Geri Sayım Modu (-05:12)
+                    const remainingSecs = totalSecs - currentSecs;
+                    const remaining = formatTime(remainingSecs, totalSecs);
+                    timeDisplay.innerText = `-${remaining} / ${total}`;
+                }
+
+                const percentage = (video.currentTime / video.duration) * 100;
+                progressFill.style.width = `${percentage}%`;
+            } else {
+                timeDisplay.innerText = "Yükleniyor...";
+                progressFill.style.width = '0%';
             }
-        });
+        }
 
         function formatTime(totalSeconds, videoDuration) {
+            if (isNaN(totalSeconds) || !isFinite(totalSeconds) || totalSeconds < 0) totalSeconds = 0;
+            
             const hours = Math.floor(totalSeconds / 3600);
             const minutes = Math.floor((totalSeconds % 3600) / 60);
             const seconds = totalSeconds % 60;
+            
+            const totalHours = Math.floor(videoDuration / 3600);
+
             const hDisplay = hours < 10 ? '0' + hours : hours;
             const mDisplay = minutes < 10 ? '0' + minutes : minutes;
             const sDisplay = seconds < 10 ? '0' + seconds : seconds;
-            return Math.floor(videoDuration / 3600) > 0 ? `${hDisplay}:${mDisplay}:${sDisplay}` : `${mDisplay}:${sDisplay}`;
+
+            if (totalHours > 0) {
+                return `${hDisplay}:${mDisplay}:${sDisplay}`;
+            } else {
+                return `${mDisplay}:${sDisplay}`;
+            }
         }
 
         function showTooltip(event) {
             if (isLiveStream || !video.duration || !isFinite(video.duration)) return;
             const rect = progressBar.getBoundingClientRect();
-            let clientX = event.clientX || (event.touches ? event.touches[0].clientX : 0);
-            let clickX = Math.max(0, Math.min(clientX - rect.left, rect.width));
-            seekTooltip.innerText = formatTime(Math.floor((clickX / rect.width) * video.duration), video.duration);
+            let clientX = event.clientX;
+            
+            if (event.touches && event.touches.length > 0) {
+                clientX = event.touches[0].clientX;
+            }
+            
+            let clickX = clientX - rect.left;
+            if (clickX < 0) clickX = 0;
+            if (clickX > rect.width) clickX = rect.width;
+            
+            const seekTime = (clickX / rect.width) * video.duration;
+            seekTooltip.innerText = formatTime(Math.floor(seekTime), video.duration);
             seekTooltip.style.left = `${clickX}px`;
             seekTooltip.style.display = 'block';
         }
 
-        function hideTooltip() { seekTooltip.style.display = 'none'; }
+        function hideTooltip() {
+            seekTooltip.style.display = 'none';
+        }
+
         function seekVideo(event) {
             if (isLiveStream || !video.duration || !isFinite(video.duration)) return;
             const rect = progressBar.getBoundingClientRect();
-            video.currentTime = Math.floor(((event.clientX - rect.left) / rect.width) * video.duration);
+            const clickX = event.clientX - rect.left;
+            const seekTime = (clickX / rect.width) * video.duration;
+            video.currentTime = Math.floor(seekTime);
         }
 
         function togglePlay() {
-            if (video.paused) { video.play().catch(e=>console.log(e)); } else { video.pause(); }
-            playBtn.innerHTML = video.paused ? '<i class="fas fa-play"></i>' : '<i class="fas fa-pause"></i>';
-            centerPlayBtn.innerHTML = video.paused ? '<i class="fas fa-play"></i>' : '<i class="fas fa-pause"></i>';
+            if (video.paused) {
+                video.play().catch(e => console.log(e));
+                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                centerPlayBtn.innerHTML = '<i class="fas fa-pause"></i>';
+            } else {
+                video.pause();
+                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                centerPlayBtn.innerHTML = '<i class="fas fa-play"></i>';
+            }
+            requestWakeLock();
             showControlsTemporarily();
         }
 
-        function forward() { if (isLiveStream) return; video.currentTime += 10; triggerSkipAlert("+10s"); }
-        function rewind() { if (isLiveStream) return; video.currentTime -= 10; triggerSkipAlert("-10s"); }
         function triggerSkipAlert(text) {
-            skipAlert.innerText = text; skipAlert.classList.add('show');
-            setTimeout(() => skipAlert.classList.remove('show'), 500);
+            if (isLiveStream) return; 
+            skipAlert.innerText = text;
+            skipAlert.classList.add('show');
+            setTimeout(() => {
+                skipAlert.classList.remove('show');
+            }, 500);
         }
 
-        videoContainer.addEventListener('click', (e) => {
-            if (!videoControls.contains(e.target) && !e.target.closest('.center-btn')) showControlsTemporarily();
+        function forward() { 
+            if (isLiveStream) return;
+            video.currentTime += 10; 
+            showControlsTemporarily(); 
+            triggerSkipAlert("+10s");
+        }
+        
+        function rewind() { 
+            if (isLiveStream) return;
+            video.currentTime -= 10; 
+            showControlsTemporarily(); 
+            triggerSkipAlert("-10s");
+        }
+
+        videoContainer.addEventListener('click', function(e) {
+            const isClickOnControls = videoControls.contains(e.target) || e.target.closest('.center-btn') || e.target.closest('#landscapeBackBtn');
+            if (!isClickOnControls) {
+                showControlsTemporarily();
+            }
         });
 
         function showControlsTemporarily() {
             videoContainer.classList.add('show-controls');
             if (controlsTimeout) clearTimeout(controlsTimeout);
-            controlsTimeout = setTimeout(() => { if (!video.paused) videoContainer.classList.remove('show-controls'); }, 3000);
+            controlsTimeout = setTimeout(() => {
+                if (!video.paused && !isChangingPip) videoContainer.classList.remove('show-controls');
+            }, 3000);
         }
 
         function toggleFullscreen() {
             if (!document.fullscreenElement) {
                 if (videoContainer.requestFullscreen) videoContainer.requestFullscreen();
                 else if (videoContainer.webkitRequestFullscreen) videoContainer.webkitRequestFullscreen();
-            } else { document.exitFullscreen(); }
+            } else {
+                document.exitFullscreen();
+            }
         }
 
-        function toggleRotate() { if (!videoContainer.classList.contains('landscape-mode')) enterLandscape(); else exitLandscape(); }
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && videoContainer.classList.contains('landscape-mode')) exitLandscape();
+        });
+
+        function toggleRotate() {
+            if (!videoContainer.classList.contains('landscape-mode')) enterLandscape();
+            else exitLandscape();
+        }
+
         function enterLandscape() {
             videoContainer.classList.add('landscape-mode');
-            if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
-            showControlsTemporarily();
-        }
-        function exitLandscape() {
-            videoContainer.classList.remove('landscape-mode');
-            if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+            document.body.style.overflow = 'hidden';
+            if (videoContainer.requestFullscreen) {
+                videoContainer.requestFullscreen().then(() => {
+                    lockScreenOrientation();
+                }).catch(() => {
+                    lockScreenOrientation();
+                });
+            } else {
+                lockScreenOrientation();
+            }
             showControlsTemporarily();
         }
 
-        // WEBVIEW VE MOBİLDE EN ÜST DÜZEY ZORLAYICI PIP SİSTEMİ
+        function lockScreenOrientation() {
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(e => console.log("Yön kilitlenemedi: ", e));
+            } else if (screen.lockOrientation) {
+                screen.lockOrientation('landscape');
+            }
+        }
+
+        function exitLandscape() {
+            videoContainer.classList.remove('landscape-mode');
+            document.body.style.overflow = '';
+            if (document.fullscreenElement) document.exitFullscreen();
+            if (screen.orientation && screen.orientation.unlock) {
+                screen.orientation.unlock();
+            } else if (screen.unlockOrientation) {
+                screen.unlockOrientation();
+            }
+            showControlsTemporarily();
+        }
+
+        // --- WebView ve Mobil İçin PiP (Küçük Pencere) Modunu Çalışmaya Zorlama Algoritması ---
         async function togglePip() {
             try {
                 isChangingPip = true;
                 if (document.pictureInPictureEnabled && video.requestPictureInPicture) {
-                    if (video !== document.pictureInPictureElement) await video.requestPictureInPicture();
-                    else await document.exitPictureInPicture();
-                } else if (video.webkitSupportsPresentationMode && typeof video.webkitSetPresentationMode === "function") {
-                    video.webkitSetPresentationMode(video.webkitPresentationMode === "picture-in-picture" ? "inline" : "picture-in-picture");
-                } else {
-                    alert("Cihazınız arka planda otomatik PiP özelliğini tam desteklememektedir.");
+                    if (video !== document.pictureInPictureElement) {
+                        await video.requestPictureInPicture();
+                    } else {
+                        await document.exitPictureInPicture();
+                    }
+                } 
+                else if (video.webkitSupportsPresentationMode && typeof video.webkitSetPresentationMode === "function") {
+                    // iOS / Safari ve bazı özel Appilix WebView yapıları için zorlama modu
+                    const currentMode = video.webkitPresentationMode;
+                    if (currentMode === "picture-in-picture") {
+                        video.webkitSetPresentationMode("inline");
+                    } else {
+                        video.webkitSetPresentationMode("picture-in-picture");
+                    }
+                } 
+                else {
+                    // Android WebView Arka Plan PiP tetikleyicisini yerel video elementine enjekte etme denemesi
+                    video.setAttribute("pip", "true");
+                    video.setAttribute("aria-pip", "true");
+                    alert("Cihazınız PiP desteğini arka planda yürütüyor, ana sayfaya geçerek test ediniz.");
                 }
-            } catch (error) { console.log(error); } finally { isChangingPip = false; }
+            } catch (error) {
+                console.log("PiP Hatası: ", error);
+            } finally {
+                isChangingPip = false;
+                if (!video.paused) {
+                    video.play().catch(e => console.log(e));
+                }
+            }
         }
 
-        // UYGULAMADAN ÇIKINCA VEYA ARKA PLANA GEÇİNCE OTOMATİK PiP TETİKLEYİCİSİ
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden' && !video.paused && !isLiveStream) {
-                togglePip(); 
-            } else if (document.visibilityState === 'visible') {
-                requestWakeLock();
-                // CEO dönüşünde kaldığı yerden devam ettirme koruması garantiye alınır
-                if(video.paused && video.getAttribute('data-current-url')) {
-                    video.play().catch(()=>{});
+        video.addEventListener('leavepictureinpicture', () => {
+            setTimeout(() => {
+                if (video.paused) {
+                    video.play().catch(e => console.log(e));
+                    playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                    centerPlayBtn.innerHTML = '<i class="fas fa-pause"></i>';
                 }
+            }, 100);
+        });
+
+        // Uygulamadan çıkıldığında (Arka plana geçildiğinde) PiP modunu YouTube gibi otomatik olarak tetiklemeye zorlama
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                if (!video.paused && !isLiveStream) {
+                    if (video.requestPictureInPicture) {
+                        video.requestPictureInPicture().catch(e => console.log("Otomatik PiP tetiklenemedi: ", e));
+                    } else if (video.webkitSetPresentationMode) {
+                        video.webkitSetPresentationMode("picture-in-picture");
+                    }
+                }
+            } else {
+                requestWakeLock();
             }
         });
 
@@ -1037,15 +1291,20 @@
             const body = document.body;
             const btn = document.getElementById('themeBtn');
             if (body.getAttribute('data-theme') === 'dark') {
-                body.removeAttribute('data-theme'); currentTheme = 'light';
+                body.removeAttribute('data-theme');
+                currentTheme = 'light';
                 btn.innerHTML = '<i class="fas fa-moon"></i> Gece';
             } else {
-                body.setAttribute('data-theme', 'dark'); currentTheme = 'dark';
+                body.setAttribute('data-theme', 'dark');
+                currentTheme = 'dark';
                 btn.innerHTML = '<i class="fas fa-sun"></i> Gündüz';
             }
         }
 
-        window.onload = () => { fetchAndParseM3U(); requestWakeLock(); };
+        window.onload = () => {
+            fetchAndParseM3U();
+            requestWakeLock();
+        };
     </script>
 </body>
 </html>
