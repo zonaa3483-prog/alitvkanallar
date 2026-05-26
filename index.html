@@ -43,6 +43,11 @@
             flex-direction: column;
             height: 100vh;
             transition: background-color 0.3s, color 0.3s;
+            /* PC'de tıpkı mobil gibi görünmesi için ortalanmış kısıtlama alanı */
+            max-width: 480px;
+            margin: 0 auto;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            position: relative;
         }
 
         /* --- ÜST BAR (BAŞLIK & TEMA) --- */
@@ -114,6 +119,7 @@
             left: 0;
             width: 100vw;
             height: 100vh;
+            max-width: none;
             aspect-ratio: auto;
             z-index: 9999;
         }
@@ -226,6 +232,9 @@
             font-size: 12px;
             color: #fff;
             white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+            padding: 2px 4px;
         }
 
         .seek-tooltip {
@@ -575,7 +584,8 @@
                 <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)" onmousemove="showTooltip(event)" onmouseleave="hideTooltip()" ontouchmove="showTooltip(event)" ontouchend="hideTooltip()">
                     <div class="video-progress-fill" id="progressFill"></div>
                 </div>
-                <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
+                <!-- YouTube usulü mod için tıklandığında tetiklenen onclick eklendi -->
+                <div class="time-display" id="timeDisplay" onclick="toggleTimeDisplayMode()">00:00 / 00:00</div>
             </div>
         </div>
     </div>
@@ -614,6 +624,7 @@
         let isChangingPip = false; 
         let wakeLock = null; 
         let isLiveStream = false;
+        let showRemainingTime = false; // YouTube usulü süre görünüm modu bayrağı
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -629,7 +640,6 @@
         const timelineContainer = document.getElementById('timelineContainer');
         const muteBtn = document.getElementById('muteBtn');
 
-        // Canlı yayınlarda eski kare takılmasını önleme tetikleyicisi
         video.addEventListener('playing', () => {
             video.style.opacity = "1";
         });
@@ -811,7 +821,6 @@
             }
         }
 
-        // --- STATE KORUMA VE REDIRECT (Geliştirilmiş Kesintisiz Dönüş Sistemi) ---
         function saveStateAndRedirect() {
             const state = {
                 url: video.getAttribute('data-current-url') || '',
@@ -863,20 +872,19 @@
             localStorage.removeItem('elitv_state'); 
         }
 
-        // --- IPTV OYNATMA MOTORU (AzTV ve Canlı Kararma Optimizasyonlu) ---
+        // --- Geliştirilmiş OTT Oynatma Altyapısı ---
         function playMedia(url, title, element, categoryName) {
             video.pause();
             
-            // Canlı yayın geçişlerinde donuk ekran kalmaması için opaklığı sıfırlıyoruz
             const lowerCat = categoryName ? categoryName.toLowerCase() : "";
             const lowerUrl = url.toLowerCase();
             
-            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerCat.includes("vod") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv") || lowerCat.includes("kino") || lowerCat.includes("film")) {
+            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv") || lowerCat.includes("kino") || lowerCat.includes("film") || lowerCat.includes("vod")) {
                 isLiveStream = false;
-                video.style.opacity = "1"; // VOD içeriklerde direkt gösterilebilir
+                video.style.opacity = "1"; 
             } else {
                 isLiveStream = true; 
-                video.style.opacity = "0"; // Yeni canlı akış yüklenene kadar ekranı temiz tut (Siyah kalır)
+                video.style.opacity = "0"; 
             }
 
             video.src = "";
@@ -904,7 +912,7 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            // AzTV, a2 ve yerel şifreli/katı HLS kanalları için güçlendirilmiş hls.js ayarları
+            // OTT Player ve Güçlendirilmiş Buffer Motoru Kurulumu
             if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = url;
                 video.load();
@@ -935,19 +943,18 @@
                 maxMaxBufferLength: 60,          
                 backBufferLength: 15,           
                 liveBackBufferLength: 10,        
-                maxStarvationDelay: 8,          
-                maxLoadingDelay: 8,             
-                appendErrorMaxRetry: 200,         
+                maxStarvationDelay: 10,          
+                maxLoadingDelay: 10,             
+                appendErrorMaxRetry: 300,         
                 liveSyncDurationCount: 3,       
                 liveMaxLatencyDurationCount: 5,
-                nudgeMaxRetries: 80,            
+                nudgeMaxRetries: 100,            
                 nudgeDuration: 0.1,              
                 progressive: true,
                 abrEwmaFastLive: 1.0,            
                 abrEwmaSlowLive: 3.0,
                 forceKeyFrameOnDiscontinuity: true,
                 maxAudioFramesDrift: 1,
-                // Kodek uyumsuzlukları gösteren yerli kanallar (AzTV/a2 vb.) için hata tolerans modları
                 defaultAudioCodec: 'mp4a.40.2', 
                 ignoreDevicePixelRatio: true,
                 xhrSetup: function (xhr, xhrUrl) {
@@ -976,7 +983,6 @@
                             hls.recoverMediaError();
                             break;
                         default:
-                            // Eğer hls.js tamamen çökerse native korumaya geçiş yap
                             video.src = url;
                             video.load();
                             video.play().catch(e => console.log(e));
@@ -999,31 +1005,46 @@
             } else {
                 vodControls.forEach(el => el.style.setProperty('display', '', 'important'));
                 progressBar.style.pointerEvents = 'auto';
-                timeDisplay.innerText = "00:00 / 00:00";
+                updateTimeDisplay();
             }
         }
 
-        video.addEventListener('timeupdate', () => {
-            if (isLiveStream) {
-                progressFill.style.width = '0%';
-                return;
-            }
+        // Zaman göstergesini güncelleyen fonksiyon
+        function updateTimeDisplay() {
+            if (isLiveStream) return;
 
             if (video.duration && isFinite(video.duration) && video.duration > 0) {
                 const currentSecs = Math.floor(video.currentTime);
                 const totalSecs = Math.floor(video.duration);
                 
-                const current = formatTime(currentSecs, totalSecs);
-                const total = formatTime(totalSecs, totalSecs);
+                if (showRemainingTime) {
+                    // YouTube stili: Kalan süreyi gösterir
+                    const remainingSecs = totalSecs - currentSecs;
+                    const remainingTimeStr = formatTime(remainingSecs, totalSecs);
+                    timeDisplay.innerText = `-${remainingTimeStr}`;
+                } else {
+                    // Klasik stil: Geçen süre / Toplam süre
+                    const current = formatTime(currentSecs, totalSecs);
+                    const total = formatTime(totalSecs, totalSecs);
+                    timeDisplay.innerText = `${current} / ${total}`;
+                }
                 
-                timeDisplay.innerText = `${current} / ${total}`;
                 const percentage = (video.currentTime / video.duration) * 100;
                 progressFill.style.width = `${percentage}%`;
             } else {
                 timeDisplay.innerText = "Yükleniyor...";
                 progressFill.style.width = '0%';
             }
-        });
+        }
+
+        // Süre metnine tıklandığında görünüm modunu değiştirme (YouTube gibi)
+        function toggleTimeDisplayMode() {
+            if (isLiveStream) return;
+            showRemainingTime = !showRemainingTime;
+            updateTimeDisplay();
+        }
+
+        video.addEventListener('timeupdate', updateTimeDisplay);
 
         function formatTime(totalSeconds, videoDuration) {
             if (isNaN(totalSeconds) || !isFinite(totalSeconds) || totalSeconds < 0) totalSeconds = 0;
@@ -1038,7 +1059,7 @@
             const mDisplay = minutes < 10 ? '0' + minutes : minutes;
             const sDisplay = seconds < 10 ? '0' + seconds : seconds;
 
-            if (totalHours > 0) {
+            if (totalHours > 0 || hours > 0) {
                 return `${hDisplay}:${mDisplay}:${sDisplay}`;
             } else {
                 return `${mDisplay}:${sDisplay}`;
