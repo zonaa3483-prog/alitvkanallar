@@ -866,7 +866,7 @@
             localStorage.removeItem('elitv_state'); 
         }
 
-        // --- IPTV & INTERNET ARCHIVE OPTİMİZASYONLU OYNATMA MOTORU ---
+        // --- iMPLAYER ALTYAPILI VE ÖNBELLEK DOSTU OYNATMA MOTORU ---
         function playMedia(url, title, element, categoryName, savedTime = 0) {
             video.pause();
             video.style.opacity = "0"; 
@@ -874,7 +874,6 @@
             const lowerCat = categoryName ? categoryName.toLowerCase() : "";
             const lowerUrl = url.toLowerCase();
             
-            // Internet Archive, Dizi, Film veya Müzik Kategorisi Tespiti
             if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv") || lowerCat.includes("kino") || lowerCat.includes("film") || lowerUrl.includes("archive.org")) {
                 isLiveStream = false;
             } else {
@@ -906,34 +905,41 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            // Yerel kanalların (İctimai, ARB, Xəzər) ve Archive.org Sunucularının Donmasını Önleyen Agresif Arabellek Ayarları
+            // iMPlayer HTTP Kandırma ve Performans Ayarları
             const hlsConfig = {
                 enableWorker: true,
-                lowLatencyMode: isLiveStream,           
-                maxBufferLength: isLiveStream ? 20 : 60, // Archive.org için 60 saniyelik derin önbellek, Canlı için 20 sn
-                maxMaxBufferLength: isLiveStream ? 40 : 120,          
-                backBufferLength: 20,           
-                liveBackBufferLength: 8,        
-                maxStarvationDelay: 4,          
-                maxLoadingDelay: 5,             
-                appendErrorMaxRetry: 100,         
-                liveSyncDurationCount: 2,       
-                liveMaxLatencyDurationCount: 4,
-                nudgeMaxRetries: 40,            
-                nudgeDuration: 0.1,              
+                lowLatencyMode: true,           
+                maxBufferLength: isLiveStream ? 4 : 10,     // Hafızada çöp tutmaması için arabellek düşürüldü (Hızlı dolum)
+                maxMaxBufferLength: isLiveStream ? 8 : 20,  // Maksimum sınır daraltıldı, cihaz belleğini şişirmez
+                backBufferLength: 0,                        // İzlenen geçmiş saniyeleri anında sil (RAM dostu)
+                liveBackBufferLength: 0,                    
+                maxStarvationDelay: 1.5,                    
+                maxLoadingDelay: 2,             
+                appendErrorMaxRetry: 200,                   // Kopmalarda anında otomatik ayağa kaldırma
+                liveSyncDurationCount: 1.5,       
+                liveMaxLatencyDurationCount: 3,
+                nudgeMaxRetries: 50,            
+                nudgeDuration: 0.05,             
                 progressive: true,
-                abrEwmaFastLive: 1.0,            
-                abrEwmaSlowLive: 3.0,
+                abrEwmaFastLive: 0.5,            
+                abrEwmaSlowLive: 1.5,
                 forceKeyFrameOnDiscontinuity: true,
-                maxAudioFramesDrift: 2,
-                fragLoadingTimeOut: 25000, // Zaman aşımı süreleri uzatılarak yerel yayınların kopması engellendi
-                manifestLoadingTimeOut: 25000,
-                levelLoadingTimeOut: 25000,
+                maxAudioFramesDrift: 1,
+                fragLoadingTimeOut: 15000, 
+                manifestLoadingTimeOut: 15000,
+                levelLoadingTimeOut: 15000,
+                
+                // SUNUCULARI iMPlayer UYGULAMASI GİBİ KANDIRAN KISIM
                 xhrSetup: function (xhr, xhrUrl) {
                     xhr.withCredentials = false;  
                     if (xhr.overrideMimeType) {
                         xhr.overrideMimeType("application/vnd.apple.mpegurl");
                     }
+                    // Tarayıcı izin verdiği ölçüde özel iMPlayer başlık simülasyonu yapılıyor
+                    try {
+                        xhr.setRequestHeader("X-Requested-With", "com.implayer.mobile");
+                        xhr.setRequestHeader("User-Agent", "iMPlayer/1.0 (Linux; Android 11; iMPlayer Mobile Build/112)");
+                    } catch(e) {}
                 }
             };
 
@@ -945,7 +951,7 @@
                 requestWakeLock();
             };
 
-            // Canlı AzTV, İctimai, ARB ve Xəzər TV gibi HLS tabanlı yerel akışlar için kontrol
+            // Canlı Kanallar (HLS / m3u8)
             if (Hls.isSupported() && (lowerUrl.includes(".m3u8") || isLiveStream)) {
                 hls = new Hls(hlsConfig);
                 hls.loadSource(url);
@@ -970,7 +976,7 @@
                     }
                 });
             } else {
-                // Archive.org MP4/MKV direkt dosyalarında donmasız native oynatıcı tetiklenir
+                // Video, Film, Müzikler (Donmadan ve önbelleği doldurmadan direkt oynatım)
                 video.src = url;
                 video.load();
                 if (isLiveStream) {
