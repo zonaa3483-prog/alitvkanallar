@@ -36,17 +36,27 @@
         }
 
         body {
-            background-color: var(--bg-color);
+            background-color: #1a1a1a; /* PC/Tablet arka planı */
             color: var(--text-color);
             overflow-x: hidden;
             display: flex;
             flex-direction: column;
             height: 100vh;
             transition: background-color 0.3s, color 0.3s;
-            max-width: 480px;
-            margin: 0 auto;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            align-items: center; /* Mobil görünümü merkezlemek için */
+        }
+
+        /* --- HER CİHAZDA TELEFON GİBİ AÇILMA SİSTEMİ --- */
+        .app-wrapper {
+            width: 100%;
+            max-width: 480px; /* Standart mobil genişliği */
+            height: 100vh;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
             position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            transition: background-color 0.3s;
         }
 
         /* --- ÜST BAR (BAŞLIK & TEMA) --- */
@@ -118,7 +128,6 @@
             left: 0;
             width: 100vw;
             height: 100vh;
-            max-width: none;
             aspect-ratio: auto;
             z-index: 9999;
         }
@@ -231,9 +240,8 @@
             font-size: 12px;
             color: #fff;
             white-space: nowrap;
-            cursor: pointer;
+            cursor: pointer; /* YouTube sayacı için tıklanabilir alan */
             user-select: none;
-            padding: 2px 4px;
         }
 
         .seek-tooltip {
@@ -529,94 +537,91 @@
 </head>
 <body>
 
-    <div class="top-header-bar">
-        <div class="app-title-container">
-            <div class="app-title"><i class="fas fa-play-circle"></i> ƏLİ TV</div>
-            <div class="ceo-header-link" onclick="saveStateAndRedirect()">
-                <i class="fas fa-user-shield"></i> Qurucu: Əli Məhərrəmov
+    <div class="app-wrapper">
+        <div class="top-header-bar">
+            <div class="app-title-container">
+                <div class="app-title"><i class="fas fa-play-circle"></i> ƏLİ TV</div>
+                <div class="ceo-header-link" onclick="saveStateAndRedirect()">
+                    <i class="fas fa-user-shield"></i> Qurucu: Əli Məhərrəmov
+                </div>
             </div>
-        </div>
-        <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn">
-            <i class="fas fa-moon"></i> Gecə
-        </button>
-    </div>
-
-    <div class="video-container" id="videoContainer">
-        <div class="media-title-overlay" id="mediaTitleOverlay">Oynatılan Yayın Seçilmedi</div>
-
-        <button class="landscape-back-btn" id="landscapeBackBtn" onclick="event.stopPropagation(); exitLandscape();" title="Geri Dön">
-            <i class="fas fa-arrow-left"></i>
-        </button>
-
-        <video id="mainPlayer" playsinline></video>
-        
-        <div class="skip-alert" id="skipAlert">+10s</div>
-
-        <div class="center-controls" id="centerControls">
-            <button class="center-btn VOD-control" onclick="event.stopPropagation(); rewind();"><i class="fas fa-backward"></i></button>
-            <button class="center-btn" id="centerPlayBtn" onclick="event.stopPropagation(); togglePlay();"><i class="fas fa-play"></i></button>
-            <button class="center-btn VOD-control" onclick="event.stopPropagation(); forward();"><i class="fas fa-forward"></i></button>
+            <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn">
+                <i class="fas fa-moon"></i> Gecə
+            </button>
         </div>
 
-        <div class="video-controls" id="videoControls">
-            <div class="control-row" onclick="event.stopPropagation();">
-                <div class="control-group">
-                    <button class="control-btn" onclick="togglePlay()" id="playBtn"><i class="fas fa-pause"></i></button>
-                    <button class="control-btn VOD-control" onclick="rewind()"><i class="fas fa-undo"></i></button>
-                    <button class="control-btn VOD-control" onclick="forward()"><i class="fas fa-redo"></i></button>
-                    
-                    <div class="volume-container">
-                        <button class="control-btn" onclick="toggleMute()" id="muteBtn" style="padding: 5px 2px; font-size: 16px;">
-                            <i class="fas fa-volume-up"></i>
-                        </button>
+        <div class="video-container" id="videoContainer">
+            <div class="media-title-overlay" id="mediaTitleOverlay">Oynatılan Yayın Seçilmedi</div>
+
+            <button class="landscape-back-btn" id="landscapeBackBtn" onclick="event.stopPropagation(); exitLandscape();" title="Geri Dön">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+
+            <video id="mainPlayer" playsinline></video>
+            
+            <div class="skip-alert" id="skipAlert">+10s</div>
+
+            <div class="center-controls" id="centerControls">
+                <button class="center-btn VOD-control" onclick="event.stopPropagation(); rewind();"><i class="fas fa-backward"></i></button>
+                <button class="center-btn" id="centerPlayBtn" onclick="event.stopPropagation(); togglePlay();"><i class="fas fa-play"></i></button>
+                <button class="center-btn VOD-control" onclick="event.stopPropagation(); forward();"><i class="fas fa-forward"></i></button>
+            </div>
+
+            <div class="video-controls" id="videoControls">
+                <div class="control-row" onclick="event.stopPropagation();">
+                    <div class="control-group">
+                        <button class="control-btn" onclick="togglePlay()" id="playBtn"><i class="fas fa-pause"></i></button>
+                        <button class="control-btn VOD-control" onclick="rewind()"><i class="fas fa-undo"></i></button>
+                        <button class="control-btn VOD-control" onclick="forward()"><i class="fas fa-redo"></i></button>
+                        
+                        <div class="volume-container">
+                            <button class="control-btn" onclick="toggleMute()" id="muteBtn" style="padding: 5px 2px; font-size: 16px;">
+                                <i class="fas fa-volume-up"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <button class="control-btn" onclick="toggleRotate()" id="rotateBtn" title="Ekranı Çevir"><i class="fas fa-sync-alt"></i></button>
+                        <button class="control-btn" onclick="togglePip()" id="pipBtn" title="PiP Modu"><i class="fas fa-compress"></i></button>
+                        <button class="control-btn" onclick="toggleFullscreen()" title="Tam Ekran"><i class="fas fa-expand"></i></button>
                     </div>
                 </div>
-                <div class="control-group">
-                    <button class="control-btn" onclick="toggleRotate()" id="rotateBtn" title="Ekranı Çevir"><i class="fas fa-sync-alt"></i></button>
-                    <button class="control-btn" onclick="togglePip()" id="pipBtn" title="PiP Modu"><i class="fas fa-compress"></i></button>
-                    <button class="control-btn" onclick="toggleFullscreen()" title="Tam Ekran"><i class="fas fa-expand"></i></button>
+
+                <div class="timeline-container" id="timelineContainer" onclick="event.stopPropagation();">
+                    <div class="seek-tooltip" id="seekTooltip">00:00</div>
+                    <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)" onmousemove="showTooltip(event)" onmouseleave="hideTooltip()" ontouchmove="showTooltip(event)" ontouchend="hideTooltip()">
+                        <div class="video-progress-fill" id="progressFill"></div>
+                    </div>
+                    <!-- YouTube Tipi Zaman Sayacı için Tıklama Olayı -->
+                    <div class="time-display" id="timeDisplay" onclick="toggleCountdownMode()">00:00 / 00:00</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <div class="section-header-row">
+                <div class="section-title">
+                    <i class="fas fa-film"></i> Canlı Tvlər və Kinolar
+                </div>
+                <div class="search-container" id="searchBoxContainer" style="display: none;">
+                    <i class="fas fa-search"></i>
+                    <input type="text" class="search-input" id="searchInput" placeholder="Axtar..." oninput="filterPlaylist()">
                 </div>
             </div>
 
-            <div class="timeline-container" id="timelineContainer" onclick="event.stopPropagation();">
-                <div class="seek-tooltip" id="seekTooltip">00:00</div>
-                <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)" onmousemove="showTooltip(event)" onmouseleave="hideTooltip()" ontouchmove="showTooltip(event)" ontouchend="hideTooltip()">
-                    <div class="video-progress-fill" id="progressFill"></div>
-                </div>
-                <div class="time-display" id="timeDisplay" onclick="toggleTimeDisplayMode()">00:00 / 00:00</div>
+            <div id="statusLayout" class="status-msg">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>Yüklənir...</span>
             </div>
-        </div>
-    </div>
 
-    <div class="content-area">
-        <div class="section-header-row">
-            <div class="section-title">
-                <i class="fas fa-film"></i> Canlı Tvlər və Kinolar
+            <div id="mainLayout" style="display: none;">
+                <div class="category-accordion" id="accordionContainer"></div>
             </div>
-            <div class="search-container" id="searchBoxContainer" style="display: none;">
-                <i class="fas fa-search"></i>
-                <input type="text" class="search-input" id="searchInput" placeholder="Axtar..." oninput="filterPlaylist()">
-            </div>
-        </div>
-
-        <div id="statusLayout" class="status-msg">
-            <i class="fas fa-spinner fa-spin"></i>
-            <span>Yüklənir...</span>
-        </div>
-
-        <div id="mainLayout" style="display: none;">
-            <div class="category-accordion" id="accordionContainer"></div>
         </div>
     </div>
 
     <script>
         const INTERNAL_M3U_URL = "https://raw.githubusercontent.com/zonaa3483-prog/eli-iptv-siyahi/refs/heads/main/alimtv.m3u"; 
-
-        // CORS engellerini tamamen aşmak için kullanılan kurumsal yedekli reverse proxy tünelleri
-        const PROXY_SERVERS = [
-            "https://cors-anywhere.herokuapp.com/",
-            "https://api.allorigins.win/raw?url="
-        ];
 
         const PLAYLIST_DATA = {
             series: {}
@@ -628,7 +633,9 @@
         let isChangingPip = false; 
         let wakeLock = null; 
         let isLiveStream = false;
-        let showRemainingTime = false; 
+        let isCountdownMode = false; // YouTube Zaman Modu Sayacı
+        let proxyList = ["", "https://api.allorigins.win/raw?url="]; // CORS engeli aşma listesi
+        let currentProxyIndex = 0;
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -761,7 +768,7 @@
                     const listItem = document.createElement('div');
                     listItem.className = 'stream-list-item';
                     listItem.setAttribute('data-url', item.url);
-                    listItem.onclick = () => playMedia(item.url, item.title, listItem, catName);
+                    listItem.onclick = () => { currentProxyIndex = 0; playMedia(item.url, item.title, listItem, catName); };
                     
                     listItem.innerHTML = `
                         <div class="stream-details">
@@ -825,6 +832,7 @@
             }
         }
 
+        // --- STATE KORUMA VE REDIRECT ---
         function saveStateAndRedirect() {
             const state = {
                 url: video.getAttribute('data-current-url') || '',
@@ -832,10 +840,11 @@
                 category: video.getAttribute('data-current-cat') || '',
                 time: video.currentTime || 0,
                 isLive: isLiveStream,
-                theme: currentTheme
+                theme: currentTheme,
+                isPaused: video.paused
             };
             localStorage.setItem('elitv_state', JSON.stringify(state));
-            window.open('https://elimeherremov.taplink.ws/', '_blank');
+            window.location.href = 'https://elimeherremov.taplink.ws/';
         }
 
         function restoreAppState() {
@@ -859,13 +868,16 @@
                     
                     playMedia(state.url, state.title, null, state.category);
                     
-                    if (!state.isLive && state.time > 0) {
-                        const onTimeInit = () => {
-                            video.currentTime = state.time;
-                            video.removeEventListener('loadedmetadata', onTimeInit);
-                        };
-                        video.addEventListener('loadedmetadata', onTimeInit);
-                    }
+                    const onTimeInit = () => {
+                        if (state.time > 0) video.currentTime = state.time;
+                        if (state.isPaused) {
+                            video.pause();
+                            playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                            centerPlayBtn.innerHTML = '<i class="fas fa-play"></i>';
+                        }
+                        video.removeEventListener('loadedmetadata', onTimeInit);
+                    };
+                    video.addEventListener('loadedmetadata', onTimeInit);
                 }
                 if (state.theme === 'dark') {
                     toggleTheme();
@@ -876,27 +888,19 @@
             localStorage.removeItem('elitv_state'); 
         }
 
-        // --- OTT Oynatıcı Kararlılığı ve CORS Çözümleyici Altyapı ---
+        // --- IPTV OYNATMA MOTORU (OTTPLAY VE CORS OPTİMİZASYONLU) ---
         function playMedia(url, title, element, categoryName) {
             video.pause();
             
             const lowerCat = categoryName ? categoryName.toLowerCase() : "";
-            const lowerTitle = title ? title.toLowerCase() : "";
             const lowerUrl = url.toLowerCase();
             
-            // Azerbaycan kanallarının canlı yayın modunu tam isabetle yakalamak için kontrol mekanizması
-            if (
-                lowerTitle.includes("xezer") || lowerTitle.includes("xəzər") ||
-                lowerTitle.includes("arb") || lowerTitle.includes("aztv") ||
-                lowerTitle.includes("ictimai") || lowerTitle.includes("itv") ||
-                lowerTitle.includes("canli") || lowerTitle.includes("canlı") ||
-                (!lowerCat.includes("dizi") && !lowerCat.includes("kino") && !lowerCat.includes("film") && !lowerCat.includes("vod") && !lowerUrl.includes(".mp4") && !lowerUrl.includes(".mkv"))
-            ) {
-                isLiveStream = true; 
-                video.style.opacity = "1"; 
-            } else {
+            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerCat.includes("vod") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv") || lowerCat.includes("kino") || lowerCat.includes("film")) {
                 isLiveStream = false;
-                video.style.opacity = "1"; 
+                video.style.opacity = "1";
+            } else {
+                isLiveStream = true; 
+                video.style.opacity = "0";
             }
 
             video.src = "";
@@ -924,21 +928,18 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            // CORS Engelini Aşmak İçin Proxy Hazırlığı (Eğer link yerel veya güvenli ağda değilse tüneller)
-            let finalUrl = url;
-            if (isLiveStream && !url.includes("cors-anywhere") && !url.includes("allorigins")) {
-                // Akışı doğrudan proxy üzerinden besleyerek bağımsız OTT Player davranışı simüle edilir
-                finalUrl = PROXY_SERVERS[1] + encodeURIComponent(url);
-            }
+            // OTTPlay mantığı CORS aşma koruması tetikleyicisi
+            let finalUrl = proxyList[currentProxyIndex] ? proxyList[currentProxyIndex] + encodeURIComponent(url) : url;
 
-            if (Hls.isSupported()) {
-                initHlsJs(finalUrl, url, title, element, categoryName);
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                // Safari ve yerel Apple oynatıcılar için doğrudan kaynak ataması
-                video.src = url;
+            if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = finalUrl;
                 video.load();
-                video.play().catch(e => console.log(e));
+                video.play().catch(e => {
+                    initHlsJs(finalUrl, title, element, categoryName, url);
+                });
                 requestWakeLock();
+            } else if (Hls.isSupported()) {
+                initHlsJs(finalUrl, title, element, categoryName, url);
             } else {
                 video.src = finalUrl;
                 video.load();
@@ -952,38 +953,37 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function initHlsJs(proxiedUrl, originalUrl, title, element, categoryName) {
+        function initHlsJs(finalUrl, title, element, categoryName, originalUrl) {
             hls = new Hls({
                 enableWorker: true,
                 lowLatencyMode: true,           
-                maxBufferLength: 45,             // Donmaları önlemek için önbellek boyutu artırıldı
-                maxMaxBufferLength: 90,          
-                backBufferLength: 30,           
-                liveBackBufferLength: 15,        
-                maxStarvationDelay: 15,          
-                maxLoadingDelay: 15,             
-                appendErrorMaxRetry: 500,         
+                maxBufferLength: 30,             
+                maxMaxBufferLength: 60,          
+                backBufferLength: 15,           
+                liveBackBufferLength: 10,        
+                maxStarvationDelay: 10,          
+                maxLoadingDelay: 10,             
+                appendErrorMaxRetry: 300,         
                 liveSyncDurationCount: 3,       
-                liveMaxLatencyDurationCount: 6,
-                nudgeMaxRetries: 150,            
+                liveMaxLatencyDurationCount: 5,
+                nudgeMaxRetries: 100,            
                 nudgeDuration: 0.1,              
                 progressive: true,
                 abrEwmaFastLive: 1.0,            
                 abrEwmaSlowLive: 3.0,
                 forceKeyFrameOnDiscontinuity: true,
-                maxAudioFramesDrift: 2,
+                maxAudioFramesDrift: 1,
                 defaultAudioCodec: 'mp4a.40.2', 
                 ignoreDevicePixelRatio: true,
                 xhrSetup: function (xhr, xhrUrl) {
                     xhr.withCredentials = false;  
-                    // Bazı sunucuların tarayıcı kısıtlamalarını aşmak için sahte akış başlıkları tanımlanır
                     if (xhr.overrideMimeType) {
                         xhr.overrideMimeType("application/vnd.apple.mpegurl");
                     }
                 }
             });
             
-            hls.loadSource(proxiedUrl);
+            hls.loadSource(finalUrl);
             hls.attachMedia(video);
             
             hls.on(Hls.Events.MANIFEST_PARSED, function() {
@@ -991,26 +991,24 @@
                 requestWakeLock();
             });
             
-            // Canlı TV kanallarında akış koptuğunda veya sunucu yanıt vermediğinde otomatik kurtarma döngüsü
             hls.on(Hls.Events.ERROR, function (event, data) {
                 if (data.fatal) {
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
-                            console.log("Ağ hatası, yedek proxy veya kaynak deneniyor...");
-                            // Birinci proxy başarısız olursa alternatif kurumsal proxy'ye geçiş yapılır
-                            if (xhrUrl && !xhrUrl.includes(PROXY_SERVERS[0])) {
-                                hls.loadSource(PROXY_SERVERS[0] + originalUrl);
+                            // OTTPlay CORS proxy koruması döngüsü
+                            if (currentProxyIndex < proxyList.length - 1) {
+                                currentProxyIndex++;
+                                console.log("CORS Engeli algılandı, Proxy deneniyor...");
+                                playMedia(originalUrl, title, element, categoryName);
                             } else {
                                 hls.startLoad();
                             }
                             break;
                         case Hls.ErrorTypes.MEDIA_ERROR:
-                            console.log("Medya uyumsuzluğu algılandı, senkronizasyon yenileniyor...");
                             hls.recoverMediaError();
                             break;
                         default:
-                            console.log("Kritik oynatılamama durumu, akış baştan yükleniyor...");
-                            video.src = originalUrl;
+                            video.src = finalUrl;
                             video.load();
                             video.play().catch(e => console.log(e));
                             break;
@@ -1032,8 +1030,15 @@
             } else {
                 vodControls.forEach(el => el.style.setProperty('display', '', 'important'));
                 progressBar.style.pointerEvents = 'auto';
-                updateTimeDisplay();
+                timeDisplay.innerText = "00:00 / 00:00";
             }
+        }
+
+        // --- YOUTUBE TIPI ZAMAN SAYACI ---
+        function toggleCountdownMode() {
+            if (isLiveStream) return;
+            isCountdownMode = !isCountdownMode;
+            updateTimeDisplay();
         }
 
         function updateTimeDisplay() {
@@ -1043,28 +1048,20 @@
                 const currentSecs = Math.floor(video.currentTime);
                 const totalSecs = Math.floor(video.duration);
                 
-                if (showRemainingTime) {
+                if (isCountdownMode) {
                     const remainingSecs = totalSecs - currentSecs;
-                    const remainingTimeStr = formatTime(remainingSecs, totalSecs);
-                    timeDisplay.innerText = `-${remainingTimeStr}`;
+                    timeDisplay.innerText = `-${formatTime(remainingSecs, totalSecs)}`;
                 } else {
                     const current = formatTime(currentSecs, totalSecs);
                     const total = formatTime(totalSecs, totalSecs);
                     timeDisplay.innerText = `${current} / ${total}`;
                 }
-                
                 const percentage = (video.currentTime / video.duration) * 100;
                 progressFill.style.width = `${percentage}%`;
             } else {
                 timeDisplay.innerText = "Yükleniyor...";
                 progressFill.style.width = '0%';
             }
-        }
-
-        function toggleTimeDisplayMode() {
-            if (isLiveStream) return;
-            showRemainingTime = !showRemainingTime;
-            updateTimeDisplay();
         }
 
         video.addEventListener('timeupdate', updateTimeDisplay);
@@ -1082,7 +1079,7 @@
             const mDisplay = minutes < 10 ? '0' + minutes : minutes;
             const sDisplay = seconds < 10 ? '0' + seconds : seconds;
 
-            if (totalHours > 0 || hours > 0) {
+            if (totalHours > 0) {
                 return `${hDisplay}:${mDisplay}:${sDisplay}`;
             } else {
                 return `${mDisplay}:${sDisplay}`;
@@ -1225,6 +1222,7 @@
             showControlsTemporarily();
         }
 
+        // --- WEBVIEW ARKA PLAN ZORUNLU PiP SİSTEMİ ---
         async function togglePip() {
             try {
                 isChangingPip = true;
@@ -1244,7 +1242,8 @@
                     }
                 } 
                 else {
-                    alert("Cihazınızın WebView altyapısı arka planda küçük pencere (PiP) özelliğini desteklememektedir.");
+                    // WebView alt yapısında PiP API yoksa alternatif tetikleme
+                    video.click();
                 }
             } catch (error) {
                 console.log("PiP Hatası: ", error);
@@ -1255,6 +1254,21 @@
                 }
             }
         }
+
+        // YouTube arka plana geçiş tetikleyicisi (WebView için Mebcuriyet)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && !video.paused) {
+                togglePip();
+            } else if (document.visibilityState === 'visible') {
+                requestWakeLock();
+            }
+        });
+
+        window.addEventListener('pagehide', () => {
+            if (!video.paused) {
+                togglePip();
+            }
+        });
 
         video.addEventListener('leavepictureinpicture', () => {
             setTimeout(() => {
@@ -1279,12 +1293,6 @@
                 btn.innerHTML = '<i class="fas fa-sun"></i> Gündüz';
             }
         }
-
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                requestWakeLock();
-            }
-        });
 
         window.onload = () => {
             fetchAndParseM3U();
