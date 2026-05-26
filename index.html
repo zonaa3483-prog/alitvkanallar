@@ -43,13 +43,12 @@
             flex-direction: column;
             height: 100vh;
             transition: background-color 0.3s, color 0.3s;
-            align-items: center; /* PC/Tablet için ortalama */
+            align-items: center;
         }
 
-        /* Tüm Cihazlarda Mobil Arayüzü Korumak İçin Kapsayıcı Sınırlandırması */
         .top-header-bar, .video-container:not(.landscape-mode), .content-area {
             width: 100%;
-            max-width: 500px; /* PC ve Tablette telefon görünümünü korur */
+            max-width: 500px;
             margin: 0 auto;
         }
 
@@ -130,7 +129,7 @@
             height: 100%;
             object-fit: contain;
             background: #000;
-            opacity: 0; /* Geçişlerde eski kareyi göstermemek için varsayılan gizli */
+            opacity: 0;
             transition: opacity 0.1s ease-in-out;
         }
 
@@ -235,7 +234,7 @@
             font-size: 12px;
             color: #fff;
             white-space: nowrap;
-            cursor: pointer; /* Tıklanabilir yaptık */
+            cursor: pointer;
             user-select: none;
         }
 
@@ -551,7 +550,7 @@
             <i class="fas fa-arrow-left"></i>
         </button>
 
-        <video id="mainPlayer" playsinline></video>
+        <video id="mainPlayer" playsinline preload="auto"></video>
         
         <div class="skip-alert" id="skipAlert">+10s</div>
 
@@ -586,7 +585,6 @@
                 <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)" onmousemove="showTooltip(event)" onmouseleave="hideTooltip()" ontouchmove="showTooltip(event)" ontouchend="hideTooltip()">
                     <div class="video-progress-fill" id="progressFill"></div>
                 </div>
-                <!-- YouTube Tarzı Zaman Sayacı Geliştirildi -->
                 <div class="time-display" id="timeDisplay" onclick="toggleTimeMode()">00:00 / 00:00</div>
             </div>
         </div>
@@ -626,7 +624,7 @@
         let isChangingPip = false; 
         let wakeLock = null; 
         let isLiveStream = false;
-        let showRemainingTime = false; // YouTube tarzı kalan süre modu kontrolü
+        let showRemainingTime = false; 
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -642,7 +640,6 @@
         const timelineContainer = document.getElementById('timelineContainer');
         const muteBtn = document.getElementById('muteBtn');
 
-        // Kararma optimizasyonu: İlk kare gelince veya oynama başlayınca siyah ekrandan videoya geç
         video.addEventListener('playing', () => {
             video.style.opacity = "1";
         });
@@ -663,8 +660,6 @@
                 console.log(`Wake Lock hatası: ${err.message}`);
             }
         }
-
-        function releaseWakeLock() {}
 
         async function fetchAndParseM3U() {
             try {
@@ -827,7 +822,6 @@
             }
         }
 
-        // --- STATE KORUMA VE REDIRECT (Geliştirilmiş Kesintisiz Dönüş Sistemi) ---
         function saveStateAndRedirect() {
             const state = {
                 url: video.getAttribute('data-current-url') || '',
@@ -836,7 +830,7 @@
                 time: video.currentTime || 0,
                 isLive: isLiveStream,
                 theme: currentTheme,
-                isCeoRedirect: true // Bayrak ekledik
+                isCeoRedirect: true 
             };
             localStorage.setItem('elitv_state', JSON.stringify(state));
             window.open('https://elimeherremov.taplink.ws/', '_blank');
@@ -861,7 +855,6 @@
                         }
                     });
                     
-                    // Sadece CEO yönlendirmesinden dönüldüyse süreyi koru, normal canlı TV ise sıfırdan başlasın
                     playMedia(state.url, state.title, null, state.category, state.isCeoRedirect ? state.time : 0);
                 }
                 if (state.theme === 'dark') {
@@ -873,15 +866,16 @@
             localStorage.removeItem('elitv_state'); 
         }
 
-        // --- IPTV OYNATMA MOTORU (OttPlay / OttNavigator Protokol Simülasyonlu) ---
+        // --- IPTV & INTERNET ARCHIVE OPTİMİZASYONLU OYNATMA MOTORU ---
         function playMedia(url, title, element, categoryName, savedTime = 0) {
             video.pause();
-            video.style.opacity = "0"; // Geçiş esnasında donmuş kare yerine SİYAH ekran
+            video.style.opacity = "0"; 
             
             const lowerCat = categoryName ? categoryName.toLowerCase() : "";
             const lowerUrl = url.toLowerCase();
             
-            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv") || lowerCat.includes("kino") || lowerCat.includes("film")) {
+            // Internet Archive, Dizi, Film veya Müzik Kategorisi Tespiti
+            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv") || lowerCat.includes("kino") || lowerCat.includes("film") || lowerUrl.includes("archive.org")) {
                 isLiveStream = false;
             } else {
                 isLiveStream = true; 
@@ -912,35 +906,34 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            // OTT Oynatıcı Emülasyon Ayarları (CORS Engine & UserAgent / Referer Engellerini Aşma)
+            // Yerel kanalların (İctimai, ARB, Xəzər) ve Archive.org Sunucularının Donmasını Önleyen Agresif Arabellek Ayarları
             const hlsConfig = {
                 enableWorker: true,
-                lowLatencyMode: true,           
-                maxBufferLength: 15,             
-                maxMaxBufferLength: 30,          
-                backBufferLength: 10,           
-                liveBackBufferLength: 5,        
-                maxStarvationDelay: 3,          
-                maxLoadingDelay: 4,             
-                appendErrorMaxRetry: 50,         
+                lowLatencyMode: isLiveStream,           
+                maxBufferLength: isLiveStream ? 20 : 60, // Archive.org için 60 saniyelik derin önbellek, Canlı için 20 sn
+                maxMaxBufferLength: isLiveStream ? 40 : 120,          
+                backBufferLength: 20,           
+                liveBackBufferLength: 8,        
+                maxStarvationDelay: 4,          
+                maxLoadingDelay: 5,             
+                appendErrorMaxRetry: 100,         
                 liveSyncDurationCount: 2,       
                 liveMaxLatencyDurationCount: 4,
-                nudgeMaxRetries: 30,            
+                nudgeMaxRetries: 40,            
                 nudgeDuration: 0.1,              
                 progressive: true,
                 abrEwmaFastLive: 1.0,            
                 abrEwmaSlowLive: 3.0,
                 forceKeyFrameOnDiscontinuity: true,
-                maxAudioFramesDrift: 1,
-                defaultAudioCodec: 'mp4a.40.2', 
-                ignoreDevicePixelRatio: true,
+                maxAudioFramesDrift: 2,
+                fragLoadingTimeOut: 25000, // Zaman aşımı süreleri uzatılarak yerel yayınların kopması engellendi
+                manifestLoadingTimeOut: 25000,
+                levelLoadingTimeOut: 25000,
                 xhrSetup: function (xhr, xhrUrl) {
                     xhr.withCredentials = false;  
-                    // Tarayıcı tabanlı CORS / Origin engellerini aşmak ve yerel sağlayıcıları (AzTV, İctimai) kandırmak için başlık simülasyonu
                     if (xhr.overrideMimeType) {
                         xhr.overrideMimeType("application/vnd.apple.mpegurl");
                     }
-                    // CORS Bypass Proxy entegrasyonu ihtiyacı duyulursa URL manipülasyonu burada tetiklenebilir
                 }
             };
 
@@ -952,7 +945,8 @@
                 requestWakeLock();
             };
 
-            if (Hls.isSupported()) {
+            // Canlı AzTV, İctimai, ARB ve Xəzər TV gibi HLS tabanlı yerel akışlar için kontrol
+            if (Hls.isSupported() && (lowerUrl.includes(".m3u8") || isLiveStream)) {
                 hls = new Hls(hlsConfig);
                 hls.loadSource(url);
                 hls.attachMedia(video);
@@ -975,14 +969,15 @@
                         }
                     }
                 });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = url;
-                video.load();
-                video.addEventListener('loadedmetadata', startPlayback, { once: true });
             } else {
+                // Archive.org MP4/MKV direkt dosyalarında donmasız native oynatıcı tetiklenir
                 video.src = url;
                 video.load();
-                startPlayback();
+                if (isLiveStream) {
+                    video.addEventListener('loadedmetadata', startPlayback, { once: true });
+                } else {
+                    startPlayback();
+                }
             }
 
             playBtn.innerHTML = '<i class="fas fa-pause"></i>';
@@ -1004,7 +999,6 @@
             }
         }
 
-        // YouTube tarzı zaman sayacına tıklama işlevi
         function toggleTimeMode() {
             if (isLiveStream) return;
             showRemainingTime = !showRemainingTime;
@@ -1198,7 +1192,6 @@
             showControlsTemporarily();
         }
 
-        // PiP Modu Optimizasyonları (Donmama ve Arka Planda Akıcılık Garantisi)
         async function togglePip() {
             try {
                 isChangingPip = true;
@@ -1230,9 +1223,8 @@
             }
         }
 
-        // PiP'ten uygulamaya geri dönüldüğünde donmayı engelleyen tetikleyiciler
         video.addEventListener('leavepictureinpicture', () => {
-            video.style.opacity = "1"; // Siyah kalmasını önle
+            video.style.opacity = "1"; 
             setTimeout(() => {
                 if (!video.paused || video.readyState >= 2) {
                     video.play().catch(e => video.load());
@@ -1259,7 +1251,6 @@
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
                 requestWakeLock();
-                // Arka plandan dönüldüğünde akış donmuşsa yeniden canlandır
                 if (!video.paused && video.readyState < 2) {
                     if(hls) { hls.startLoad(); } else { video.load(); video.play(); }
                 }
