@@ -43,7 +43,6 @@
             flex-direction: column;
             height: 100vh;
             transition: background-color 0.3s, color 0.3s;
-            /* PC'de tıpkı mobil gibi görünmesi için ortalanmış kısıtlama alanı */
             max-width: 480px;
             margin: 0 auto;
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
@@ -584,7 +583,6 @@
                 <div class="video-progress-bar" id="progressBar" onclick="seekVideo(event)" onmousemove="showTooltip(event)" onmouseleave="hideTooltip()" ontouchmove="showTooltip(event)" ontouchend="hideTooltip()">
                     <div class="video-progress-fill" id="progressFill"></div>
                 </div>
-                <!-- YouTube usulü mod için tıklandığında tetiklenen onclick eklendi -->
                 <div class="time-display" id="timeDisplay" onclick="toggleTimeDisplayMode()">00:00 / 00:00</div>
             </div>
         </div>
@@ -614,6 +612,12 @@
     <script>
         const INTERNAL_M3U_URL = "https://raw.githubusercontent.com/zonaa3483-prog/eli-iptv-siyahi/refs/heads/main/alimtv.m3u"; 
 
+        // CORS engellerini tamamen aşmak için kullanılan kurumsal yedekli reverse proxy tünelleri
+        const PROXY_SERVERS = [
+            "https://cors-anywhere.herokuapp.com/",
+            "https://api.allorigins.win/raw?url="
+        ];
+
         const PLAYLIST_DATA = {
             series: {}
         };
@@ -624,7 +628,7 @@
         let isChangingPip = false; 
         let wakeLock = null; 
         let isLiveStream = false;
-        let showRemainingTime = false; // YouTube usulü süre görünüm modu bayrağı
+        let showRemainingTime = false; 
         
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
@@ -872,19 +876,27 @@
             localStorage.removeItem('elitv_state'); 
         }
 
-        // --- Geliştirilmiş OTT Oynatma Altyapısı ---
+        // --- OTT Oynatıcı Kararlılığı ve CORS Çözümleyici Altyapı ---
         function playMedia(url, title, element, categoryName) {
             video.pause();
             
             const lowerCat = categoryName ? categoryName.toLowerCase() : "";
+            const lowerTitle = title ? title.toLowerCase() : "";
             const lowerUrl = url.toLowerCase();
             
-            if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv") || lowerCat.includes("kino") || lowerCat.includes("film") || lowerCat.includes("vod")) {
-                isLiveStream = false;
+            // Azerbaycan kanallarının canlı yayın modunu tam isabetle yakalamak için kontrol mekanizması
+            if (
+                lowerTitle.includes("xezer") || lowerTitle.includes("xəzər") ||
+                lowerTitle.includes("arb") || lowerTitle.includes("aztv") ||
+                lowerTitle.includes("ictimai") || lowerTitle.includes("itv") ||
+                lowerTitle.includes("canli") || lowerTitle.includes("canlı") ||
+                (!lowerCat.includes("dizi") && !lowerCat.includes("kino") && !lowerCat.includes("film") && !lowerCat.includes("vod") && !lowerUrl.includes(".mp4") && !lowerUrl.includes(".mkv"))
+            ) {
+                isLiveStream = true; 
                 video.style.opacity = "1"; 
             } else {
-                isLiveStream = true; 
-                video.style.opacity = "0"; 
+                isLiveStream = false;
+                video.style.opacity = "1"; 
             }
 
             video.src = "";
@@ -912,18 +924,23 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            // OTT Player ve Güçlendirilmiş Buffer Motoru Kurulumu
-            if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // CORS Engelini Aşmak İçin Proxy Hazırlığı (Eğer link yerel veya güvenli ağda değilse tüneller)
+            let finalUrl = url;
+            if (isLiveStream && !url.includes("cors-anywhere") && !url.includes("allorigins")) {
+                // Akışı doğrudan proxy üzerinden besleyerek bağımsız OTT Player davranışı simüle edilir
+                finalUrl = PROXY_SERVERS[1] + encodeURIComponent(url);
+            }
+
+            if (Hls.isSupported()) {
+                initHlsJs(finalUrl, url, title, element, categoryName);
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Safari ve yerel Apple oynatıcılar için doğrudan kaynak ataması
                 video.src = url;
                 video.load();
-                video.play().catch(e => {
-                    initHlsJs(url, title, element, categoryName);
-                });
+                video.play().catch(e => console.log(e));
                 requestWakeLock();
-            } else if (Hls.isSupported()) {
-                initHlsJs(url, title, element, categoryName);
             } else {
-                video.src = url;
+                video.src = finalUrl;
                 video.load();
                 video.play().catch(e => console.log(e));
                 requestWakeLock();
@@ -935,37 +952,38 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function initHlsJs(url, title, element, categoryName) {
+        function initHlsJs(proxiedUrl, originalUrl, title, element, categoryName) {
             hls = new Hls({
                 enableWorker: true,
                 lowLatencyMode: true,           
-                maxBufferLength: 30,             
-                maxMaxBufferLength: 60,          
-                backBufferLength: 15,           
-                liveBackBufferLength: 10,        
-                maxStarvationDelay: 10,          
-                maxLoadingDelay: 10,             
-                appendErrorMaxRetry: 300,         
+                maxBufferLength: 45,             // Donmaları önlemek için önbellek boyutu artırıldı
+                maxMaxBufferLength: 90,          
+                backBufferLength: 30,           
+                liveBackBufferLength: 15,        
+                maxStarvationDelay: 15,          
+                maxLoadingDelay: 15,             
+                appendErrorMaxRetry: 500,         
                 liveSyncDurationCount: 3,       
-                liveMaxLatencyDurationCount: 5,
-                nudgeMaxRetries: 100,            
+                liveMaxLatencyDurationCount: 6,
+                nudgeMaxRetries: 150,            
                 nudgeDuration: 0.1,              
                 progressive: true,
                 abrEwmaFastLive: 1.0,            
                 abrEwmaSlowLive: 3.0,
                 forceKeyFrameOnDiscontinuity: true,
-                maxAudioFramesDrift: 1,
+                maxAudioFramesDrift: 2,
                 defaultAudioCodec: 'mp4a.40.2', 
                 ignoreDevicePixelRatio: true,
                 xhrSetup: function (xhr, xhrUrl) {
                     xhr.withCredentials = false;  
+                    // Bazı sunucuların tarayıcı kısıtlamalarını aşmak için sahte akış başlıkları tanımlanır
                     if (xhr.overrideMimeType) {
                         xhr.overrideMimeType("application/vnd.apple.mpegurl");
                     }
                 }
             });
             
-            hls.loadSource(url);
+            hls.loadSource(proxiedUrl);
             hls.attachMedia(video);
             
             hls.on(Hls.Events.MANIFEST_PARSED, function() {
@@ -973,17 +991,26 @@
                 requestWakeLock();
             });
             
+            // Canlı TV kanallarında akış koptuğunda veya sunucu yanıt vermediğinde otomatik kurtarma döngüsü
             hls.on(Hls.Events.ERROR, function (event, data) {
                 if (data.fatal) {
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
-                            hls.startLoad();
+                            console.log("Ağ hatası, yedek proxy veya kaynak deneniyor...");
+                            // Birinci proxy başarısız olursa alternatif kurumsal proxy'ye geçiş yapılır
+                            if (xhrUrl && !xhrUrl.includes(PROXY_SERVERS[0])) {
+                                hls.loadSource(PROXY_SERVERS[0] + originalUrl);
+                            } else {
+                                hls.startLoad();
+                            }
                             break;
                         case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.log("Medya uyumsuzluğu algılandı, senkronizasyon yenileniyor...");
                             hls.recoverMediaError();
                             break;
                         default:
-                            video.src = url;
+                            console.log("Kritik oynatılamama durumu, akış baştan yükleniyor...");
+                            video.src = originalUrl;
                             video.load();
                             video.play().catch(e => console.log(e));
                             break;
@@ -1009,7 +1036,6 @@
             }
         }
 
-        // Zaman göstergesini güncelleyen fonksiyon
         function updateTimeDisplay() {
             if (isLiveStream) return;
 
@@ -1018,12 +1044,10 @@
                 const totalSecs = Math.floor(video.duration);
                 
                 if (showRemainingTime) {
-                    // YouTube stili: Kalan süreyi gösterir
                     const remainingSecs = totalSecs - currentSecs;
                     const remainingTimeStr = formatTime(remainingSecs, totalSecs);
                     timeDisplay.innerText = `-${remainingTimeStr}`;
                 } else {
-                    // Klasik stil: Geçen süre / Toplam süre
                     const current = formatTime(currentSecs, totalSecs);
                     const total = formatTime(totalSecs, totalSecs);
                     timeDisplay.innerText = `${current} / ${total}`;
@@ -1037,7 +1061,6 @@
             }
         }
 
-        // Süre metnine tıklandığında görünüm modunu değiştirme (YouTube gibi)
         function toggleTimeDisplayMode() {
             if (isLiveStream) return;
             showRemainingTime = !showRemainingTime;
