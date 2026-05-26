@@ -917,6 +917,7 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
+            /* OTT-Play Hızlı Açılma ve Donma Önleyici Motor Ayarları */
             const hlsConfig = {
                 enableWorker: true,
                 lowLatencyMode: isLiveStream,           
@@ -942,6 +943,7 @@
                         xhr.overrideMimeType("application/vnd.apple.mpegurl");
                     }
                     try {
+                        // OTT-Play / Alex.773 Ağ Protokolü Entegrasyonu (Donmayı Engeller)
                         let finalUserAgent = specificUA || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) OTT-Play/2.20 (Alex.773 Mobile Build)";
                         xhr.setRequestHeader("User-Agent", finalUserAgent);
                         xhr.setRequestHeader("X-Requested-With", "com.ottplay.alex773");
@@ -963,6 +965,7 @@
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, startPlayback);
                 
+                // Canlı Yayın Otomatik Hata Kurtarma Sistemi (Ağ Kopmalarını Tolere Eder)
                 hls.on(Hls.Events.ERROR, function (event, data) {
                     if (data.fatal) {
                         switch (data.type) {
