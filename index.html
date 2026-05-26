@@ -683,7 +683,17 @@
                         const group = groupMatch ? groupMatch[1] : "Diğer Listeler";
                         const logo = logoMatch ? logoMatch[1] : "";
 
-                        currentItemInfo = { title, logo, group };
+                        currentItemInfo = { title, logo, group, customUA: "" };
+
+                        // Görsel 2'deki #EXTVLCOPT:http-user-agent algılayıcı alt yapı entegrasyonu
+                        if (i > 0 && lines[i-1].trim().startsWith('#EXTVLCOPT:')) {
+                            const optLine = lines[i-1].trim();
+                            const uaMatch = optLine.match(/http-user-agent="([^"]+)"/) || optLine.match(/http-user-agent=([^ ]+)/);
+                            if (uaMatch) currentItemInfo.customUA = uaMatch[1];
+                        }
+                    } else if (line.startsWith('#EXTVLCOPT:') && currentItemInfo) {
+                        const uaMatch = line.match(/http-user-agent="([^"]+)"/) || line.match(/http-user-agent=([^ ]+)/);
+                        if (uaMatch) currentItemInfo.customUA = uaMatch[1];
                     } else if (line.startsWith('http') && currentItemInfo) {
                         const url = line;
 
@@ -694,7 +704,8 @@
                         PLAYLIST_DATA.series[currentItemInfo.group].push({
                             title: currentItemInfo.title,
                             logo: currentItemInfo.logo,
-                            url: url
+                            url: url,
+                            customUA: currentItemInfo.customUA || ""
                         });
 
                         currentItemInfo = null;
@@ -758,7 +769,7 @@
                     const listItem = document.createElement('div');
                     listItem.className = 'stream-list-item';
                     listItem.setAttribute('data-url', item.url);
-                    listItem.onclick = () => playMedia(item.url, item.title, listItem, catName);
+                    listItem.onclick = () => playMedia(item.url, item.title, listItem, catName, 0, item.customUA);
                     
                     listItem.innerHTML = `
                         <div class="stream-details">
@@ -866,15 +877,14 @@
             localStorage.removeItem('elitv_state'); 
         }
 
-        // --- OTT-PLAY / iMPlayer TABANLI CANLI YAYIN MOTORU ---
-        function playMedia(url, title, element, categoryName, savedTime = 0) {
+        // --- Gelişmiş OTT-Play / iMPlayer Protokol Motoru (Görsel Standartlarına Uygun) ---
+        function playMedia(url, title, element, categoryName, savedTime = 0, specificUA = "") {
             video.pause();
             video.style.opacity = "0"; 
             
             const lowerCat = categoryName ? categoryName.toLowerCase() : "";
             const lowerUrl = url.toLowerCase();
             
-            // Kategori veya URL kontrolüne göre canlı yayın ayrımı
             if (lowerCat.includes("dizi") || lowerCat.includes("müzik") || lowerCat.includes("muzik") || lowerUrl.includes(".mp4") || lowerUrl.includes(".mkv") || lowerCat.includes("kino") || lowerCat.includes("film") || lowerUrl.includes("archive.org")) {
                 isLiveStream = false;
             } else {
@@ -906,40 +916,37 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            // OTT-Play / iMPlayer performans ve HTTP başlık simülasyon ayarları
+            // OTT-Play / iMPlayer Akıllı Buffer ve Güvenlik Duvarı Aşma Ayarları
             const hlsConfig = {
                 enableWorker: true,
-                lowLatencyMode: true,           
-                maxBufferLength: isLiveStream ? 3 : 12,     // Canlı yayında gecikme olmaması için arabellek minimuma indirildi
-                maxMaxBufferLength: isLiveStream ? 6 : 24,  // RAM şişmesini önleme sınırı
-                backBufferLength: 0,                        // İzlenen geçmiş saniyeleri RAM'den anında siler
+                lowLatencyMode: isLiveStream,           
+                maxBufferLength: isLiveStream ? 4 : 15,     
+                maxMaxBufferLength: isLiveStream ? 7 : 30,  
+                backBufferLength: 0,                        // RAM'i yormadan geçmiş buffer paketlerini anında siler
                 liveBackBufferLength: 0,                    
-                maxStarvationDelay: 1.2,                    
-                maxLoadingDelay: 2,             
-                appendErrorMaxRetry: 300,                   // Yayın kopmalarında otomatik ayağa kaldırma döngüsü
-                liveSyncDurationCount: 1.5,       
-                liveMaxLatencyDurationCount: 3,
-                nudgeMaxRetries: 60,            
-                nudgeDuration: 0.05,             
+                maxStarvationDelay: 1.5,                    
+                maxLoadingDelay: 4,             
+                appendErrorMaxRetry: 50,                   
+                liveSyncDurationCount: 2,       
+                liveMaxLatencyDurationCount: 4,
+                nudgeMaxRetries: 30,            
+                nudgeDuration: 0.1,             
                 progressive: true,
                 abrEwmaFastLive: 0.5,            
                 abrEwmaSlowLive: 1.5,
                 forceKeyFrameOnDiscontinuity: true,
-                maxAudioFramesDrift: 1,
-                fragLoadingTimeOut: 12000, 
-                manifestLoadingTimeOut: 12000,
-                levelLoadingTimeOut: 12000,
                 
-                // SUNUCULARI OTT/iMPlayer GİBİ KANDIRAN KISIM (User-Agent ve Uygulama Kimliği)
+                // Görsel 1 ve 2 Standartlarında Ağ Manipülasyon Başlığı (Anti-Block)
                 xhrSetup: function (xhr, xhrUrl) {
                     xhr.withCredentials = false;  
                     if (xhr.overrideMimeType) {
                         xhr.overrideMimeType("application/vnd.apple.mpegurl");
                     }
                     try {
-                        // Oynatıcıyı yerel Android OTT uygulaması gibi göstererek sunucu engellerini aşar
-                        xhr.setRequestHeader("X-Requested-With", "com.implayer.mobile");
-                        xhr.setRequestHeader("User-Agent", "iMPlayer/1.0 (Linux; Android 11; OTT-Play Mobile Build/112)");
+                        // Eğer M3U dosyasında özelleştirilmiş bir UA varsa onu basar, yoksa Alex.773 OTT-Play taklidi yapar
+                        let finalUserAgent = specificUA || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) OTT-Play/2.20 (Alex.773 Mobile Build)";
+                        xhr.setRequestHeader("User-Agent", finalUserAgent);
+                        xhr.setRequestHeader("X-Requested-With", "com.ottplay.alex773");
                     } catch(e) {}
                 }
             };
@@ -952,14 +959,14 @@
                 requestWakeLock();
             };
 
-            // Canlı Kanallar İçin Gelişmiş HLS Yapılandırması
+            // Canlı HLS Kanalları İçin Çözümleme
             if (Hls.isSupported() && (lowerUrl.includes(".m3u8") || isLiveStream)) {
                 hls = new Hls(hlsConfig);
                 hls.loadSource(url);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, startPlayback);
                 
-                // OTT Tarzı akıllı hata yakalama ve otomatik yenileme motoru
+                // Alex.773 Tarzı Kesintisiz Akış ve Hata Giderme Döngüsü
                 hls.on(Hls.Events.ERROR, function (event, data) {
                     if (data.fatal) {
                         switch (data.type) {
@@ -978,7 +985,7 @@
                     }
                 });
             } else {
-                // VOD / Sabit Video Dosyaları
+                // Mp4 / VOD Dosyaları
                 video.src = url;
                 video.load();
                 if (isLiveStream) {
