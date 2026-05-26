@@ -685,7 +685,6 @@
 
                         currentItemInfo = { title, logo, group, customUA: "" };
 
-                        // Görsel 2'deki #EXTVLCOPT:http-user-agent algılayıcı alt yapı entegrasyonu
                         if (i > 0 && lines[i-1].trim().startsWith('#EXTVLCOPT:')) {
                             const optLine = lines[i-1].trim();
                             const uaMatch = optLine.match(/http-user-agent="([^"]+)"/) || optLine.match(/http-user-agent=([^ ]+)/);
@@ -866,7 +865,10 @@
                         }
                     });
                     
-                    playMedia(state.url, state.title, null, state.category, state.isCeoRedirect ? state.time : 0);
+                    const targetItem = PLAYLIST_DATA.series[state.category]?.find(i => i.url === state.url);
+                    const customUA = targetItem ? targetItem.customUA : "";
+                    
+                    playMedia(state.url, state.title, null, state.category, state.isCeoRedirect ? state.time : 0, customUA);
                 }
                 if (state.theme === 'dark') {
                     toggleTheme();
@@ -877,7 +879,6 @@
             localStorage.removeItem('elitv_state'); 
         }
 
-        // --- Gelişmiş OTT-Play / iMPlayer Protokol Motoru (Görsel Standartlarına Uygun) ---
         function playMedia(url, title, element, categoryName, savedTime = 0, specificUA = "") {
             video.pause();
             video.style.opacity = "0"; 
@@ -916,13 +917,12 @@
 
             mediaTitleOverlay.innerText = title || "Bilinmeyen Yayın";
 
-            // OTT-Play / iMPlayer Akıllı Buffer ve Güvenlik Duvarı Aşma Ayarları
             const hlsConfig = {
                 enableWorker: true,
                 lowLatencyMode: isLiveStream,           
                 maxBufferLength: isLiveStream ? 4 : 15,     
                 maxMaxBufferLength: isLiveStream ? 7 : 30,  
-                backBufferLength: 0,                        // RAM'i yormadan geçmiş buffer paketlerini anında siler
+                backBufferLength: 0,                        
                 liveBackBufferLength: 0,                    
                 maxStarvationDelay: 1.5,                    
                 maxLoadingDelay: 4,             
@@ -936,14 +936,12 @@
                 abrEwmaSlowLive: 1.5,
                 forceKeyFrameOnDiscontinuity: true,
                 
-                // Görsel 1 ve 2 Standartlarında Ağ Manipülasyon Başlığı (Anti-Block)
                 xhrSetup: function (xhr, xhrUrl) {
                     xhr.withCredentials = false;  
                     if (xhr.overrideMimeType) {
                         xhr.overrideMimeType("application/vnd.apple.mpegurl");
                     }
                     try {
-                        // Eğer M3U dosyasında özelleştirilmiş bir UA varsa onu basar, yoksa Alex.773 OTT-Play taklidi yapar
                         let finalUserAgent = specificUA || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) OTT-Play/2.20 (Alex.773 Mobile Build)";
                         xhr.setRequestHeader("User-Agent", finalUserAgent);
                         xhr.setRequestHeader("X-Requested-With", "com.ottplay.alex773");
@@ -959,14 +957,12 @@
                 requestWakeLock();
             };
 
-            // Canlı HLS Kanalları İçin Çözümleme
             if (Hls.isSupported() && (lowerUrl.includes(".m3u8") || isLiveStream)) {
                 hls = new Hls(hlsConfig);
                 hls.loadSource(url);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, startPlayback);
                 
-                // Alex.773 Tarzı Kesintisiz Akış ve Hata Giderme Döngüsü
                 hls.on(Hls.Events.ERROR, function (event, data) {
                     if (data.fatal) {
                         switch (data.type) {
@@ -985,7 +981,6 @@
                     }
                 });
             } else {
-                // Mp4 / VOD Dosyaları
                 video.src = url;
                 video.load();
                 if (isLiveStream) {
