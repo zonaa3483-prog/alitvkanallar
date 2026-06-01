@@ -117,8 +117,11 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 100vw;
-            height: 100vh;
+            width: 100vh;
+            height: 100vw;
+            transform: rotate(90deg);
+            transform-origin: top left;
+            margin-top: 100vw; /* Kaydırma ayarı */
             max-width: none !important;
             aspect-ratio: auto;
             z-index: 9999;
@@ -1173,35 +1176,12 @@
         function enterLandscape() {
             videoContainer.classList.add('landscape-mode');
             document.body.style.overflow = 'hidden';
-            if (videoContainer.requestFullscreen) {
-                videoContainer.requestFullscreen().then(() => {
-                    lockScreenOrientation();
-                }).catch(() => {
-                    lockScreenOrientation();
-                });
-            } else {
-                lockScreenOrientation();
-            }
             showControlsTemporarily();
-        }
-
-        function lockScreenOrientation() {
-            if (screen.orientation && screen.orientation.lock) {
-                screen.orientation.lock('landscape').catch(e => console.log("Yön kilitlenemedi: ", e));
-            } else if (screen.lockOrientation) {
-                screen.lockOrientation('landscape');
-            }
         }
 
         function exitLandscape() {
             videoContainer.classList.remove('landscape-mode');
             document.body.style.overflow = '';
-            if (document.fullscreenElement) document.exitFullscreen();
-            if (screen.orientation && screen.orientation.unlock) {
-                screen.orientation.unlock();
-            } else if (screen.unlockOrientation) {
-                screen.unlockOrientation();
-            }
             showControlsTemporarily();
         }
 
