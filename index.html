@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.10/dist/hls.min.js"></script>
     <style>
-        /* Varsayılan Tema: BEYAZ (Açıq Modu) */
+        /* Varsayılan Tema: BEYAZ (Gündüz Modu) */
         :root {
             --bg-color: #f5f5f7;
             --card-bg: #ffffff;
@@ -17,7 +17,7 @@
             --border-color: #e5e5ea;
         }
 
-        /* Siyah Tema Değişkenleri (Qaranlıq Modu) */
+        /* Siyah Tema Değişkenleri (Gecə Modu) */
         [data-theme="dark"] {
             --bg-color: #0f0f0f;
             --card-bg: #1f1f1f;
@@ -539,12 +539,12 @@
             </div>
         </div>
         <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn">
-            <i class="fas fa-moon"></i> Qaranlıq
+            <i class="fas fa-moon"></i> Gecə
         </button>
     </div>
 
     <div class="video-container" id="videoContainer">
-        <div class="media-title-overlay" id="mediaTitleOverlay">Açmaq Üçün İstədiyini Seç</div>
+        <div class="media-title-overlay" id="mediaTitleOverlay">Açmaq Üçün Bir Kateqoriyaya Vurun</div>
 
         <button class="landscape-back-btn" id="landscapeBackBtn" onclick="event.stopPropagation(); exitLandscape();" title="Geri Dön">
             <i class="fas fa-arrow-left"></i>
@@ -664,7 +664,7 @@
         async function fetchAndParseM3U() {
             try {
                 const response = await fetch(INTERNAL_M3U_URL);
-                if (!response.ok) throw new Error("İnternet Yoxdur.");
+                if (!response.ok) throw new Error("Ağ hatası oluştu.");
                 const text = await response.text();
                 
                 const lines = text.split('\n');
@@ -1224,7 +1224,7 @@
                     }
                 } 
                 else {
-                    alert("Pip özəlliyi və videonun yan çevirmə özəlliyi tətbiqdə işləmir dönmə sadəcə webdən girəndə mümkündür. Yəni Chrome Safari və başqa saytdan. Yan çevirmə özəlliyi pip dəstəyi və linki almaq istəsəz. Yuxarıda yazılan qurucu yerinə keçid edib qurucudan linki istəyin.");
+                    alert("Diqqət! Pip özəlliyi və videonun yan çevirmə özəlliyi sadəcə webdən girəndə mümkündür. Yəni tətbiq üzərində yan çevirmə və pip dəstəklənmir. Chrome Safari və başqa saytdan linklə girdikdə isə dəstəklənir. Yan çevirmə özəlliyi ilə baxmaq istəsəz qurucu şəxsdən linki ala bilərsiz. Almaq üçün yuxarıda yazılan qurucu yerinə keçid edin və Əli Məhərrəmov instagram səyfəsinə yazın.");
                 }
             } catch (error) {
                 console.log("PiP Hatası: ", error);
@@ -1253,11 +1253,11 @@
             if (body.getAttribute('data-theme') === 'dark') {
                 body.removeAttribute('data-theme');
                 currentTheme = 'light';
-                btn.innerHTML = '<i class="fas fa-moon"></i> Açıq';
+                btn.innerHTML = '<i class="fas fa-moon"></i> Gecə';
             } else {
                 body.setAttribute('data-theme', 'dark');
                 currentTheme = 'dark';
-                btn.innerHTML = '<i class="fas fa-sun"></i> Qaranlıq';
+                btn.innerHTML = '<i class="fas fa-sun"></i> Gündüz';
             }
         }
 
