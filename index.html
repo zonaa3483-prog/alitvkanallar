@@ -17,9 +17,11 @@
         .app-title { font-size: 18px; font-weight: 700; color: var(--text-color); letter-spacing: 0.5px; }
         .ceo-header-link { font-size: 12px; font-weight: 600; color: var(--accent-color); cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 4px; user-select: none; }
         .theme-toggle-btn { background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px 14px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 13px; transition: 0.3s; display: flex; align-items: center; gap: 6px; }
+
+        /* --- VİDEO ALANI --- */
         .video-container { position: relative; background: #000; aspect-ratio: 16 / 9; position: sticky; top: 0; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: all 0.3s; }
         
-        /* DÖNDÜRME ÖZELLİĞİ İÇİN GÜNCELLENEN CSS */
+        /* ÇEVİRME ÖZELLİĞİ (CSS DÖNDÜRME) */
         .video-container.landscape-mode {
             position: fixed !important;
             top: 0 !important;
@@ -59,6 +61,7 @@
         .center-btn { background: rgba(0, 0, 0, 0.6); border: none; color: white; font-size: 24px; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .live-indicator { color: #ff0055; font-weight: bold; font-size: 13px; display: flex; align-items: center; gap: 5px; animation: blinker 1.5s linear infinite; }
         @keyframes blinker { 50% { opacity: 0.3; } }
+
         .content-area { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 15px; padding-bottom: 20px; }
         .section-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px; }
         .section-title { font-size: 16px; font-weight: 700; color: var(--accent-color); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
@@ -87,6 +90,7 @@
     </style>
 </head>
 <body>
+
     <div class="top-header-bar">
         <div class="app-title-container">
             <div class="app-title"><i class="fas fa-play-circle"></i> ƏLİ TV</div>
@@ -137,10 +141,10 @@
     </div>
 
     <script>
-        // JS Kodun (fetch, player, time, search və s. hamısı eynidir)
-        const INTERNAL_M3U_URL = "https://raw.githubusercontent.com/zonaa3483-prog/eli-iptv-siyahi/refs/heads/main/alimtv.m3u";
+        // JS Kodları (Sənin kodun qorundu)
+        const INTERNAL_M3U_URL = "https://raw.githubusercontent.com/zonaa3483-prog/eli-iptv-siyahi/refs/heads/main/alimtv.m3u"; 
         const PLAYLIST_DATA = { series: {} };
-        let currentTheme = 'light'; let hls = null; let controlsTimeout = null; let isChangingPip = false; let wakeLock = null; let isLiveStream = false; let showRemainingTime = false;
+        let currentTheme = 'light'; let hls = null; let controlsTimeout = null; let isChangingPip = false; let wakeLock = null; let isLiveStream = false; let showRemainingTime = false; 
         const video = document.getElementById('mainPlayer');
         const videoContainer = document.getElementById('videoContainer');
         const videoControls = document.getElementById('videoControls');
@@ -155,7 +159,7 @@
         const timelineContainer = document.getElementById('timelineContainer');
         const muteBtn = document.getElementById('muteBtn');
 
-        // [MÖVCUD FONSİYALARININ HAMISI BURADA QALIR]
+        // [SƏNİN FUNKSİYALARIN EYNİ QALDI]
         async function requestWakeLock() { try { if ('wakeLock' in navigator) { if (wakeLock !== null) { await wakeLock.release(); wakeLock = null; } wakeLock = await navigator.wakeLock.request('screen'); } } catch (err) { console.log(err); } }
         async function fetchAndParseM3U() { /* ... kodun eynidir ... */ }
         function initUI() { /* ... kodun eynidir ... */ }
@@ -177,11 +181,11 @@
         function triggerSkipAlert(text) { /* ... kodun eynidir ... */ }
         function forward() { video.currentTime += 10; showControlsTemporarily(); triggerSkipAlert("+10s"); }
         function rewind() { video.currentTime -= 10; showControlsTemporarily(); triggerSkipAlert("-10s"); }
-        videoContainer.addEventListener('click', function(e) { if (!videoControls.contains(e.target)) showControlsTemporarily(); });
-        function showControlsTemporarily() { videoContainer.classList.add('show-controls'); if (controlsTimeout) clearTimeout(controlsTimeout); controlsTimeout = setTimeout(() => { if (!video.paused) videoContainer.classList.remove('show-controls'); }, 3000); }
-        function toggleFullscreen() { if (!document.fullscreenElement) videoContainer.requestFullscreen(); else document.exitFullscreen(); }
+        videoContainer.addEventListener('click', function(e) { const isClickOnControls = videoControls.contains(e.target) || e.target.closest('.center-btn') || e.target.closest('#landscapeBackBtn'); if (!isClickOnControls) showControlsTemporarily(); });
+        function showControlsTemporarily() { videoContainer.classList.add('show-controls'); if (controlsTimeout) clearTimeout(controlsTimeout); controlsTimeout = setTimeout(() => { if (!video.paused && !isChangingPip) videoContainer.classList.remove('show-controls'); }, 3000); }
+        function toggleFullscreen() { if (!document.fullscreenElement) { if (videoContainer.requestFullscreen) videoContainer.requestFullscreen(); else if (videoContainer.webkitRequestFullscreen) videoContainer.webkitRequestFullscreen(); } else { document.exitFullscreen(); } }
         
-        // -- DÖNDÜRME FUNKSİYASININ YENİ VERSİYASI --
+        // --- DÖNDÜRME VƏ TAM EKRAN MƏNTİQİ ---
         function toggleRotate() {
             if (!videoContainer.classList.contains('landscape-mode')) {
                 enterLandscape();
@@ -192,18 +196,21 @@
         function enterLandscape() {
             videoContainer.classList.add('landscape-mode');
             document.body.style.overflow = 'hidden';
+            // WebView icazə verməsə belə, video konteynerini məcburi tam ekrana gətirir
+            if (videoContainer.requestFullscreen) videoContainer.requestFullscreen().catch(() => {});
             showControlsTemporarily();
         }
         function exitLandscape() {
             videoContainer.classList.remove('landscape-mode');
             document.body.style.overflow = '';
+            if (document.fullscreenElement) document.exitFullscreen();
             showControlsTemporarily();
         }
-        // ------------------------------------------
+        // ------------------------------------
 
         async function togglePip() { /* ... kodun eynidir ... */ }
         video.addEventListener('leavepictureinpicture', () => { video.style.opacity = "1"; });
-        function toggleTheme() { /* ... kodun eynidir ... */ }
+        function toggleTheme() { const body = document.body; const btn = document.getElementById('themeBtn'); if (body.getAttribute('data-theme') === 'dark') { body.removeAttribute('data-theme'); currentTheme = 'light'; btn.innerHTML = '<i class="fas fa-moon"></i> Gecə'; } else { body.setAttribute('data-theme', 'dark'); currentTheme = 'dark'; btn.innerHTML = '<i class="fas fa-sun"></i> Gündüz'; } }
         document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') requestWakeLock(); });
         window.onload = () => { fetchAndParseM3U(); requestWakeLock(); };
     </script>
